@@ -1,0 +1,423 @@
+{
+    "general": {},
+    "csv_file": {
+        "channel_groups": [
+            "CONTROL",
+            "GPS",
+            "POWER",
+            "RADIO",
+            "SWITCH",
+            "VARIO"
+        ],
+        "channel_mapping": {
+            "6P": "SWITCH.6P",
+            "Ail": "CONTROL.Ail",
+            "Aileron": "CONTROL.Aileron",
+            "Alt(m)": "VATIO.Alt (m)",
+            "Altitude(m)": "VATIO.Altitude (m)",
+            "Celm(V)": "POWER.Celm (V)",
+            "Cels(V)": "POWER.Cels (V)",
+            "Consumption(mAh)": "POWER.Consumption (mAh)",
+            "Current(A)": "POWER.Current (A)",
+            "Date": "TIME,Date",
+            "Dist(m)": "GPS.Dist (m)",
+            "Ele": "CONTROL.Ele",
+            "Elevator": "CONTROL.Elevator",
+            "EX1": "CONTROL.EX1",
+            "EX2": "CONTROL.EX2",
+            "Ext1": "CONTROL.Ext1",
+            "Ext2": "CONTROL.Ext2",
+            "GAlt(m)": "GPS.Alt (m)",
+            "GPS alt(m)": "GPS.Alt (m)",
+            "GPS clock()": "GPS.Clock",
+            "GPS speed(knots)": "GPS.Speed (kts)",
+            "GSpd(kts)": "GPS.Speed (kts)",
+            "LiPo1(V)": "POWER.LiPo1 (V)",
+            "LiPo2(V)": "POWER.LiPo2 (V)",
+            "LiPo3(V)": "POWER.LiPo3 (V)",
+            "LiPo4(V)": "POWER.LiPo4 (V)",
+            "LiPo5(V)": "POWER.LiPo5 (V)",
+            "LiPo6(V)": "POWER.LiPo6 (V)",
+            "LiPo7(V)": "POWER.LiPo7 (V)",
+            "LiPo8(V)": "POWER.LiPo8 (V)",
+            "LS": "CONTROL.LS",
+            "LSW": "SWITCH.LSW",
+            "Pot1": "CONTROL.Pot1",
+            "Pot2": "CONTROL.Pot2",
+            "Pot3": "CONTROL.Pot3",
+            "RS": "CONTROL.RS",
+            "RSSI(dB)": "RADIO.RSSI (dB)",
+            "Rud": "CONTROL.Rud",
+            "Rudder": "CONTROL.Rudder",
+            "RX": "RADIO.RX",
+            "RxBatt(V)": "RADIO.RxBatt (V)",
+            "RxBt(V)": "RADIO.RxBt (V)",
+            "S1": "CONTROL.S1",
+            "S2": "CONTROL.S2",
+            "SA": "SWITCH.SA",
+            "SB": "SWITCH.SB",
+            "SC": "SWITCH.SC",
+            "SD": "SWITCH.SD",
+            "SE": "SWITCH.SE",
+            "SF": "SWITCH.SF",
+            "SG": "SWITCH.SG",
+            "SH": "SWITCH.SH",
+            "SI": "SWITCH.SI",
+            "SJ": "SWITCH.SJ",
+            "Slider left": "CONTROL.Slider left",
+            "Slider right": "CONTROL.Slider right",
+            "Thr": "CONTROL.Thr",
+            "Throttle": "CONTROL.Throttle",
+            "Time": "TIME,Time",
+            "TxBat(V)": "RADIO.TxBat (V)",
+            "VFAS(V)": "POWER.VFAS (V)",
+            "VSpd(m/s)": "VATIO.VSpd (m/s)",
+            "VSpeed(m/s)": "VATIO.VSpeed (m/s)"
+        }
+    },
+    "tlog_file": {
+        "channel_groups": [
+            "ATT",
+            "CTRL",
+            "GPS",
+            "HB",
+            "NAV",
+            "POWER",
+            "RADIO",
+            "RC",
+            "SERVO",
+            "SWITCH",
+            "SYS",
+            "VFR"
+        ],
+        "mavlink_messages": {
+            "ATTITUDE": {
+                "group": "ATT",
+                "channel": {
+                    "Roll": {
+                        "parameter": "roll",
+                        "units": "deg"
+                    },
+                    "Pitch": {
+                        "parameter": "pitch",
+                        "units": "deg"
+                    },
+                    "Yaw": {
+                        "parameter": "yaw",
+                        "units": "deg"
+                    },
+                    "RollSpeed": {
+                        "parameter": "rollspeed",
+                        "units": "deg/s"
+                    },
+                    "PitchSpeed": {
+                        "parameter": "pitchspeed",
+                        "units": "deg/s"
+                    },
+                    "YawSpeed": {
+                        "parameter": "yawspeed",
+                        "units": "deg/s"
+                    }
+                }
+            },
+            "GPS_RAW_INT": {
+                "group": "GPS",
+                "channel": {
+                    "FixType": {
+                        "parameter": "fix_type"
+                    },
+                    "Satellites": {
+                        "parameter": "satellites_visible"
+                    },
+                    "Latitude": {
+                        "parameter": "lat"
+                    },
+                    "Longitude": {
+                        "parameter": "lon"
+                    },
+                    "Alt": {
+                        "parameter": "alt",
+                        "units": "m"
+                    },
+                    "Vel": {
+                        "parameter": "vel",
+                        "units": "m/s"
+                    },
+                    "COG": {
+                        "parameter": "cog",
+                        "units": "deg"
+                    }
+                }
+            },
+            "HEARTBEAT": {
+                "group": "HB",
+                "channel": {
+                    "BaseMode": {
+                        "parameter": "base_mode"
+                    },
+                    "CustomMode": {
+                        "parameter": "custom_mode"
+                    },
+                    "SystemStatus": {
+                        "parameter": "system_status"
+                    }
+                }
+            },
+            "NAV_CONTROLLER_OUTPUT": {
+                "group": "NAV",
+                "Roll": {
+                    "parameter": "nav_roll",
+                    "units": "deg"
+                },
+                "Pitch": {
+                    "parameter": "nav_pitch",
+                    "units": "deg"
+                },
+                "Yaw": {
+                    "parameter": "nav_yaw",
+                    "units": "deg"
+                },
+                "NavBearing": {
+                    "parameter": "nav_bearing",
+                    "units": "deg"
+                },
+                "TargetBearing": {
+                    "parameter": "target_bearing",
+                    "units": "deg"
+                },
+                "WPDist": {
+                    "parameter": "wp_dist",
+                    "units": "m"
+                },
+                "AltError": {
+                    "parameter": "alt_error",
+                    "units": "m"
+                },
+                "AirspeedError": {
+                    "parameter": "aspd_error",
+                    "units": "m/s"
+                },
+                "XTrackError": {
+                    "parameter": "xtrack_error",
+                    "units": "m"
+                }
+            },
+            "RC_CHANNELS": {
+                "group": "RC",
+                "channel": {
+                    "Channel01": {
+                        "parameter": "chan1_raw",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Channel02": {
+                        "parameter": "chan2_raw",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Channel03": {
+                        "parameter": "chan3_raw",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Channel04": {
+                        "parameter": "chan4_raw",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Channel05": {
+                        "parameter": "chan5_raw",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Channel06": {
+                        "parameter": "chan6_raw",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Channel07": {
+                        "parameter": "chan7_raw",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Channel08": {
+                        "parameter": "chan8_raw",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Channel09": {
+                        "parameter": "chan9_raw",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Channel10": {
+                        "parameter": "chan10_raw",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Channel11": {
+                        "parameter": "chan11_raw",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Channel12": {
+                        "parameter": "chan12_raw",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Channel13": {
+                        "parameter": "chan13_raw",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Channel14": {
+                        "parameter": "chan14_raw",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Channel15": {
+                        "parameter": "chan15_raw",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Channel16": {
+                        "parameter": "chan16_raw",
+                        "scale": 1.0,
+                        "units": "us"
+                    }
+                }
+            },
+            "SERVO_OUTPUT_RAW": {
+                "group": "SERVO",
+                "channel": {
+                    "Channel01": {
+                        "parameter": "servo1_raw",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Channel02": {
+                        "parameter": "servo2_raw",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Channel03": {
+                        "parameter": "servo3_raw",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Channel04": {
+                        "parameter": "servo4_raw",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Channel05": {
+                        "parameter": "servo5_raw",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Channel06": {
+                        "parameter": "servo6_raw",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Channel07": {
+                        "parameter": "servo7_raw",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Channel08": {
+                        "parameter": "servo8_raw",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Channel09": {
+                        "parameter": "servo9_raw",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Channel10": {
+                        "parameter": "servo10_raw",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Channel11": {
+                        "parameter": "servo11_raw",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Channel12": {
+                        "parameter": "servo12_raw",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Channel13": {
+                        "parameter": "servo13_raw",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Channel14": {
+                        "parameter": "servo14_raw",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Channel15": {
+                        "parameter": "servo15_raw",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Channel16": {
+                        "parameter": "servo16_raw",
+                        "scale": 1.0,
+                        "units": "us"
+                    }
+                }
+            },
+            "SYS_STATUS": {
+                "group": "SYS",
+                "channel": {
+                    "BatteryVoltage": {
+                        "parameter": "voltage_battery",
+                        "units": "V"
+                    },
+                    "BatteryCurrent": {
+                        "parameter": "current_battery",
+                        "units": "A"
+                    },
+                    "BatteryRemaining": {
+                        "parameter": "battery_remaining",
+                        "units": "%"
+                    }
+                }
+            },
+            "VFR_HUD": {
+                "group": "VFR",
+                "channel": {
+                    "Airspeed": {
+                        "parameter": "airspeed",
+                        "units": "m/s"
+                    },
+                    "Groundspeed": {
+                        "parameter": "groundspeed",
+                        "units": "m/s"
+                    },
+                    "Heading": {
+                        "parameter": "heading",
+                        "units": "deg"
+                    },
+                    "Throttle": {
+                        "parameter": "throttle",
+                        "units": "%"
+                    },
+                    "Altitude": {
+                        "parameter": "alt",
+                        "units": "m"
+                    },
+                    "ClimbRate": {
+                        "parameter": "climb",
+                        "units": "m/s"
+                    }
+                }
+            }
+        }
+    }
+}
