@@ -384,7 +384,7 @@ class MainWindow(QMainWindow):
             self,
             "Open Log File",
             "",
-            "Log Files (*.csv *.tlog);;All Files (*)"
+            "Log Files (*.csv *.tlog *.bin);;All Files (*)"
         )
 
         if file_path:
@@ -423,6 +423,8 @@ class MainWindow(QMainWindow):
                     self.filetype_config = self.config["csv_file"]
                 elif self.filetype == 'tlog':
                     self.filetype_config = self.config["tlog_file"]
+                elif self.filetype == 'bin':
+                    self.filetype_config = self.config["bin_file"]
 
                 self._update_ui_state()
                 QTimer.singleShot(3000, lambda: self.status_label.setText("Ready"))

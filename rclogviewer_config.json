@@ -419,5 +419,178 @@
                 }
             }
         }
+    },
+    "bin_file": {
+        "channel_groups": [
+            "ATT",
+            "BAT",
+            "GPS",
+            "RCIn",
+            "RCOut"
+        ],
+        "dataflash_messages": {
+            "ATT": {
+                "group": "ATT",
+                "all_channels": 1
+            },
+            "BAT": {
+                "group": "BAT",
+                "all_channels": 1
+            },
+            "GPS": {
+                "group": "GPS",
+                "all_channels": 1
+            },
+            "RCIN": {
+                "group": "RCIn",
+                "channel": {
+                    "Ch01": {
+                        "parameter": "C1",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Ch02": {
+                        "parameter": "C2",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Ch03": {
+                        "parameter": "C3",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Ch04": {
+                        "parameter": "C4",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Ch05": {
+                        "parameter": "C5",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Ch06": {
+                        "parameter": "C6",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Ch07": {
+                        "parameter": "C7",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Ch08": {
+                        "parameter": "C8",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Ch09": {
+                        "parameter": "C9",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Ch10": {
+                        "parameter": "C10",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Ch11": {
+                        "parameter": "C11",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Ch12": {
+                        "parameter": "C12",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Ch13": {
+                        "parameter": "C13",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Ch14": {
+                        "parameter": "C14",
+                        "scale": 1.0,
+                        "units": "us"
+                    }
+                }
+            },
+            "RCOU": {
+                "group": "RCOut",
+                "channel": {
+                    "Ch01": {
+                        "parameter": "C1",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Ch02": {
+                        "parameter": "C2",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Ch03": {
+                        "parameter": "C3",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Ch04": {
+                        "parameter": "C4",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Ch05": {
+                        "parameter": "C5",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Ch06": {
+                        "parameter": "C6",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Ch07": {
+                        "parameter": "C7",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Ch08": {
+                        "parameter": "C8",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Ch09": {
+                        "parameter": "C9",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Ch10": {
+                        "parameter": "C10",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Ch11": {
+                        "parameter": "C11",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Ch12": {
+                        "parameter": "C12",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Ch13": {
+                        "parameter": "C13",
+                        "scale": 1.0,
+                        "units": "us"
+                    },
+                    "Ch14": {
+                        "parameter": "C14",
+                        "scale": 1.0,
+                        "units": "us"
+                    }
+                }
+            }
+        }
     }
 }

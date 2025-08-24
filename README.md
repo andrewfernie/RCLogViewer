@@ -376,6 +376,11 @@ RCLogViewerPySide/
 11. If you are not sure which messages are contained within your tlog file, open it in Mission Planner ("Telemetry Logs tab /  "Tlog > Kml or Graph" button / "Graph Log" button) to view the data contained in the TLOG file.
 12. See https://mavlink.io/en/messages/common.html for message definitions (e.g. scaling).
 
+**Adding Support For Additional Ardupilot Dataflash Log Messages In .bin Files:**
+https://ardupilot.org/copter/docs/logmessages.html#logmessages
+https://ardupilot.org/plane/docs/logmessages.html#logmessages
+
+
 **Custom Analysis:**
 
 1. Add functions to `utils/analysis.py`

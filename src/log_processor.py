@@ -43,7 +43,7 @@ class LogProcessor:
 
     def __init__(self):
         self.current_log: Optional[LogData] = None
-        self.supported_formats = ['.csv', '.tlog']
+        self.supported_formats = ['.csv', '.tlog', '.bin']
 
     def load_file(self, file_path: str, config: Dict[str, Any], progress_callback=None) -> bool:
         """
@@ -80,6 +80,9 @@ class LogProcessor:
             elif path.suffix.lower() == '.tlog':
                 tlog_config = config["tlog_file"]
                 success = self._parse_tlog_file(path, tlog_config, progress_callback)
+            elif path.suffix.lower() == '.bin':
+                bin_config = config["bin_file"]
+                success = self._parse_bin_file(path, bin_config, progress_callback)
             else:
                 success = False
 
@@ -392,6 +395,210 @@ class LogProcessor:
         except Exception as e:
             print(f"Error parsing tlog file: {e}")
             return False
+
+    def _parse_bin_file(self, file_path: Path, config: Dict[str, Any], progress_callback=None) -> bool:
+        """
+        Parse an Ardupilot dataflash log (.bin) file and process its contents into a pandas DataFrame.
+
+        Args:
+            file_path (Path): Path to the .bin file.
+            progress_callback (callable, optional): Function to call with percent_complete (0-100).
+
+        Returns:
+            bool: True if parsing was successful, False otherwise.
+        """
+        import_status = ""
+
+        try:
+            # Open the tlog file using pymavlink
+            mlog = mavutil.mavlink_connection(str(file_path))
+            data = []
+
+            # Dataflash log (.bin) files can include time series data as well as one-time
+            # parameters, etc.
+
+            # Message definitions can be found here:
+            # https://ardupilot.org/copter/docs/logmessages.html#logmessages
+            # https://ardupilot.org/plane/docs/logmessages.html#logmessages
+
+            # We are concerned primarily with time series data, and even
+            # for time series data, the content of the bin will depend on how the flight
+            # controller has been configured. So, we need to define the message types we
+            # are interested in, and this is done in the config file through an object
+            # "dataflash_messages".
+
+
+            desired_msg_types = list(config.get("dataflash_messages", {}).keys())
+
+            # Define a scaling dictionary for unit conversions. The names are those found in the
+            # pymavlink message fieldunits_by_name attribute.
+            scaling_dict = {
+                "µs": 1.0,
+                "3600 W.s": 1.0,
+                "A": 1.0,
+                "B": 1.0,
+                "cm": 1E-2,
+                "cm/s": 1E-2,
+                "d%": 1.0,
+                "deg": 1.0,
+                "deg/s": 1.0,
+                "degC": 1.0,
+                "degheading": 1.0,
+                "deglatitude": 1.0,
+                "deglongitude": 1.0,
+                "Hz": 1.0,
+                "instance": 1.0,
+                "m": 1.0,
+                "m/s": 1.0,
+                "m/s/s": 1.0,
+                "mGauss": 1.0,
+                "ms": 1.0,
+                "Ohm": 1.0,
+                "Pa": 1.0,
+                "rad": np.rad2deg(1),
+                "rad/s": np.rad2deg(1),
+                "satellites": 1.0,
+                "us": 1.0,
+                "V": 1.0
+            }
+
+            # Iterate through all messages in the tlog
+            while True:
+                msg = mlog.recv_match(type=desired_msg_types, blocking=False)
+                if msg is None:
+                    break
+
+                percent_complete = mlog.percent
+                if progress_callback:
+                    progress_callback(percent_complete)
+
+                # Get the timestamp for this message
+                msg_datetime = pd.to_datetime(datetime.fromtimestamp(msg._timestamp
+                                ).strftime('%Y-%m-%d %H:%M:%S.%f'))
+
+                data_list =  {'DateTime': msg_datetime}
+
+                msg_dict = msg.to_dict()
+
+                # Get the "group" to which each parameter is assigned, and to be used as the prefix to the DataFrame column.
+                msg_group = config.get("dataflash_messages", {}).get(msg.get_type(), {}).get("group", "UNKNOWN")
+
+                # Get the units for each field (parameter) in the message
+                msg_units = msg.fmt.units
+
+                # Check the field "all_channels", which indicates that all channels found in the message
+                # should be imported.
+                all_channels = config.get("dataflash_messages", {}).get(msg.get_type(), {}).get("all_channels", 0)
+                if all_channels > 0:
+                    # Map all message fields to DataFrame columns
+
+                    fieldnames = msg.get_fieldnames()
+
+                    num_fields = len(fieldnames)
+
+                    for i in range(num_fields):
+                        field_name = fieldnames[i]
+
+                        # Don't bother with the "TimeUS" field - we already have the message
+                        # timestamp.
+                        if field_name != "TimeUS":
+                            field_info = msg_dict.get(field_name, {})
+                            field_units = msg_units[i]
+                            df_col_name = f"{msg_group}.{field_name} ({field_units})"
+
+                            if field_units is not None and isinstance(field_info,(int,float)):
+                                df_col_value = field_info * scaling_dict.get(field_units, 1)
+                            else:
+                                df_col_value = field_info
+
+                            data_list.update({df_col_name: df_col_value})
+
+                else:
+
+                    # Map the message fields identified in the config file to DataFrame columns
+                    msg_fields = config.get("dataflash_messages", {}).get(msg.get_type(), {}).get("channel", {})
+
+                    # Extract the relevant data from the message
+                    for field_name, field_info in msg_fields.items():
+                        df_col_name = f"{msg_group}.{field_name}"
+                        df_param_name = field_info.get("parameter")
+                        df_col_value = msg_dict.get(df_param_name)
+
+                        param_scale = field_info.get("scale",None)
+                        param_units = field_info.get("units",None)
+
+                        if param_scale is not None and isinstance(df_col_value,(int,float)):
+                            df_col_value = df_col_value * param_scale
+                        else:
+                            # Get the fieldunits_by_name for this parameter
+                            df_col_units = msg_units.get(df_param_name, None)
+
+                            if df_col_units is not None and isinstance(df_col_value,(int,float)):
+                                df_col_value = df_col_value * scaling_dict.get(df_col_units, 1)
+
+                        if param_units is not None:
+                            df_col_name = f"{df_col_name} ({param_units})"
+
+                        if df_col_value is not None:
+                            data_list.update({df_col_name: df_col_value})
+
+                if len(data_list) > 1:
+                    data.append(data_list)
+
+            if not data:
+                return False
+
+            # Convert to DataFrame
+            df = pd.DataFrame(data)
+
+            # Fill in the missing values that result from only getting a subset of data values
+            # in each message.
+            df = df.ffill()
+
+            # Calculate ElapsedTime as an offset from the first DateTime
+            if not df['DateTime'].isnull().all():
+                first_time = df['DateTime'].iloc[0]
+                df['ElapsedTime'] = (
+                    df['DateTime'] - first_time).dt.total_seconds()
+            else:
+                df['ElapsedTime'] = None
+
+            # Compute X/Y excursions in meters from center GPS point if GPS columns exist
+            if 'GPS.Longitude' in df.columns and 'GPS.Latitude' in df.columns:
+                # Convert to float in case they are strings
+                df['GPS.LongitudeFloat'] = df['GPS.Longitude'].astype(float)
+                df['GPS.LatitudeFloat'] = df['GPS.Latitude'].astype(float)
+                lon0 = df['GPS.LongitudeFloat'].mean()
+                lat0 = df['GPS.LatitudeFloat'].mean()
+                # Use pyproj for accurate projection (WGS84)
+                proj = Proj(proj='aeqd', lat_0=lat0, lon_0=lon0, datum='WGS84')
+                x, y = proj(df['GPS.LongitudeFloat'].values,
+                            df['GPS.LatitudeFloat'].values)
+                df['GPS.X (m)'] = x
+                df['GPS.Y (m)'] = y
+                df = df.drop(
+                    columns=['GPS.LatitudeFloat', 'GPS.LongitudeFloat'])
+                import_status += "Contains GPS data.\n"
+            else:
+                import_status += "No GPS data found.\n"
+
+            # Compute Power(W) if SYS.BatteryVoltage(V) and SYS.BatteryCurrent(A) are present
+            if 'SYS.BatteryVoltage (V)' in df.columns and 'SYS.BatteryCurrent (A)' in df.columns:
+                df['SYS.Power (W)'] = df['SYS.BatteryVoltage (V)'] * df['SYS.BatteryCurrent (A)']
+                import_status += "Generated 'Power (W)' data.\n"
+
+            # Sort columns alphabetically
+            df = df[sorted(df.columns)]
+
+            # Store processed data
+            self.current_log.processed_data = df
+            self.current_log.channels = list(df.columns)
+            return True
+
+        except Exception as e:
+            print(f"Error parsing tlog file: {e}")
+            return False
+
 
     def _extract_metadata(self):
         """
