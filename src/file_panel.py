@@ -85,7 +85,7 @@ class FilePanel(QWidget):
             self,
             "Open Log File",
             "",
-            "Log Files (*.csv *.tlog);;CSV Files (*.csv);;TLog Files (*.tlog);;bin Files (*.bin);;All Files (*)"
+            "Log Files (*.csv *.tlog *.bin);;CSV Files (*.csv);;TLog Files (*.tlog);;bin Files (*.bin);;All Files (*)"
         )
 
         if file_path:

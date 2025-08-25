@@ -2,7 +2,7 @@
 """
 Copyright Andrew Fernie, 2025
 
-RC Log Viewer - PySide6 Application Entry Point
+RC Log Viewer - Application Entry Point
 
 This module serves as the primary entry point for the RC Log Viewer application which
 can be used to view and analyze log files recorded by FrSky radio control
