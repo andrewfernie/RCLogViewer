@@ -90,331 +90,322 @@
             "SYS",
             "VFR"
         ],
+        "scaling": {
+            "degE5": {
+                "units_suffix": "deg",
+                "scale": 1e-5
+            },
+            "degE7": {
+                "units_suffix": "deg",
+                "scale": 1e-7
+            },
+            "s": {
+                "units_suffix": "s",
+                "scale": 1
+            },
+            "ms": {
+                "units_suffix": "ms",
+                "scale": 1
+            },
+            "us": {
+                "units_suffix": "us",
+                "scale": 1
+            },
+            "m": {
+                "units_suffix": "m",
+                "scale": 1
+            },
+            "cm": {
+                "units_suffix": "m",
+                "scale": 1e-2
+            },
+            "mm": {
+                "units_suffix": "m",
+                "scale": 1e-3
+            },
+            "m/s": {
+                "units_suffix": "m/s",
+                "scale": 1
+            },
+            "cm/s": {
+                "units_suffix": "m/s",
+                "scale": 1e-2
+            },
+            "mm/s": {
+                "units_suffix": "m/s",
+                "scale": 1e-3
+            },
+            "cdeg": {
+                "units_suffix": "deg",
+                "scale": 1e-2
+            },
+            "rad": {
+                "units_suffix": "deg",
+                "scale": 57.2958
+            },
+            "rad/s": {
+                "units_suffix": "deg/s",
+                "scale": 57.2958
+            },
+            "V": {
+                "units_suffix": "V",
+                "scale": 1
+            },
+            "mV": {
+                "units_suffix": "V",
+                "scale": 1e-3
+            },
+            "deg": {
+                "units_suffix": "deg",
+                "scale": 1
+            },
+            "%": {
+                "units_suffix": "%",
+                "scale": 1
+            },
+            "A": {
+                "units_suffix": "A",
+                "scale": 1
+            },
+            "cA": {
+                "units_suffix": "A",
+                "scale": 1e-2
+            }
+        },
         "mavlink_messages": {
             "ATTITUDE": {
                 "group": "ATT",
                 "channel": {
-                    "Roll": {
-                        "parameter": "roll",
-                        "units": "deg"
+                    "roll": {
+                        "base_name": "Roll"
                     },
-                    "Pitch": {
-                        "parameter": "pitch",
-                        "units": "deg"
+                    "pitch": {
+                        "base_name": "Pitch"
                     },
-                    "Yaw": {
-                        "parameter": "yaw",
-                        "units": "deg"
+                    "yaw": {
+                        "base_name": "Yaw"
                     },
-                    "RollSpeed": {
-                        "parameter": "rollspeed",
-                        "units": "deg/s"
+                    "rollspeed": {
+                        "base_name": "RollSpeed"
                     },
-                    "PitchSpeed": {
-                        "parameter": "pitchspeed",
-                        "units": "deg/s"
+                    "pitchspeed": {
+                        "base_name": "PitchSpeed"
                     },
-                    "YawSpeed": {
-                        "parameter": "yawspeed",
-                        "units": "deg/s"
+                    "yawspeed": {
+                        "base_name": "YawSpeed"
                     }
                 }
             },
             "GPS_RAW_INT": {
                 "group": "GPS",
                 "channel": {
-                    "FixType": {
-                        "parameter": "fix_type"
+                    "fix_type": {
+                        "base_name": "FixType"
                     },
-                    "Satellites": {
-                        "parameter": "satellites_visible"
+                    "satellites_visible": {
+                        "base_name": "Satellites"
                     },
-                    "Latitude": {
-                        "parameter": "lat"
+                    "lat": {
+                        "base_name": "Latitude"
                     },
-                    "Longitude": {
-                        "parameter": "lon"
+                    "lon": {
+                        "base_name": "Longitude"
                     },
-                    "Alt": {
-                        "parameter": "alt",
-                        "units": "m"
+                    "alt": {
+                        "base_name": "Alt"
                     },
-                    "Vel": {
-                        "parameter": "vel",
-                        "units": "m/s"
+                    "vel": {
+                        "base_name": "Velocity"
                     },
-                    "COG": {
-                        "parameter": "cog",
-                        "units": "deg"
+                    "cog": {
+                        "base_name": "COG"
                     }
                 }
             },
             "HEARTBEAT": {
                 "group": "HB",
                 "channel": {
-                    "BaseMode": {
-                        "parameter": "base_mode"
+                    "base_mode": {
+                        "base_name": "BaseMode"
                     },
-                    "CustomMode": {
-                        "parameter": "custom_mode"
+                    "custom_mode": {
+                        "base_name": "CustomMode"
                     },
-                    "SystemStatus": {
-                        "parameter": "system_status"
+                    "system_status": {
+                        "base_name": "SystemStatus"
                     }
                 }
             },
             "NAV_CONTROLLER_OUTPUT": {
                 "group": "NAV",
-                "Roll": {
-                    "parameter": "nav_roll",
-                    "units": "deg"
+                "nav_roll": {
+                    "base_name": "Roll"
                 },
-                "Pitch": {
-                    "parameter": "nav_pitch",
-                    "units": "deg"
+                "nav_pitch": {
+                    "base_name": "Pitch"
                 },
-                "Yaw": {
-                    "parameter": "nav_yaw",
-                    "units": "deg"
+                "nav_yaw": {
+                    "base_name": "Yaw"
                 },
-                "NavBearing": {
-                    "parameter": "nav_bearing",
-                    "units": "deg"
+                "nav_bearing": {
+                    "base_name": "NavBearing"
                 },
-                "TargetBearing": {
-                    "parameter": "target_bearing",
-                    "units": "deg"
+                "target_bearing": {
+                    "base_name": "TargetBearing"
                 },
-                "WPDist": {
-                    "parameter": "wp_dist",
-                    "units": "m"
+                "wp_dist": {
+                    "base_name": "WPDist"
                 },
-                "AltError": {
-                    "parameter": "alt_error",
-                    "units": "m"
+                "alt_error": {
+                    "base_name": "AltError"
                 },
-                "AirspeedError": {
-                    "parameter": "aspd_error",
-                    "units": "m/s"
+                "aspd_error": {
+                    "base_name": "AirspeedError"
                 },
-                "XTrackError": {
-                    "parameter": "xtrack_error",
-                    "units": "m"
+                "xtrack_error": {
+                    "base_name": "XTrackError"
                 }
             },
             "RC_CHANNELS": {
                 "group": "RC",
                 "channel": {
-                    "Channel01": {
-                        "parameter": "chan1_raw",
-                        "scale": 1.0,
-                        "units": "us"
+                    "chan1_raw": {
+                        "base_name": "Ch_01"
                     },
-                    "Channel02": {
-                        "parameter": "chan2_raw",
-                        "scale": 1.0,
-                        "units": "us"
+                    "chan2_raw": {
+                        "base_name": "Ch_02"
                     },
-                    "Channel03": {
-                        "parameter": "chan3_raw",
-                        "scale": 1.0,
-                        "units": "us"
+                    "chan3_raw": {
+                        "base_name": "Ch_03"
                     },
-                    "Channel04": {
-                        "parameter": "chan4_raw",
-                        "scale": 1.0,
-                        "units": "us"
+                    "chan4_raw": {
+                        "base_name": "Ch_04"
                     },
-                    "Channel05": {
-                        "parameter": "chan5_raw",
-                        "scale": 1.0,
-                        "units": "us"
+                    "chan5_raw": {
+                        "base_name": "Ch_05"
                     },
-                    "Channel06": {
-                        "parameter": "chan6_raw",
-                        "scale": 1.0,
-                        "units": "us"
+                    "chan6_raw": {
+                        "base_name": "Ch_06"
                     },
-                    "Channel07": {
-                        "parameter": "chan7_raw",
-                        "scale": 1.0,
-                        "units": "us"
+                    "chan7_raw": {
+                        "base_name": "Ch_07"
                     },
-                    "Channel08": {
-                        "parameter": "chan8_raw",
-                        "scale": 1.0,
-                        "units": "us"
+                    "chan8_raw": {
+                        "base_name": "Ch_08"
                     },
-                    "Channel09": {
-                        "parameter": "chan9_raw",
-                        "scale": 1.0,
-                        "units": "us"
+                    "chan9_raw": {
+                        "base_name": "Ch_09"
                     },
-                    "Channel10": {
-                        "parameter": "chan10_raw",
-                        "scale": 1.0,
-                        "units": "us"
+                    "chan10_raw": {
+                        "base_name": "Ch_10"
                     },
-                    "Channel11": {
-                        "parameter": "chan11_raw",
-                        "scale": 1.0,
-                        "units": "us"
+                    "chan11_raw": {
+                        "base_name": "Ch_11"
                     },
-                    "Channel12": {
-                        "parameter": "chan12_raw",
-                        "scale": 1.0,
-                        "units": "us"
+                    "chan12_raw": {
+                        "base_name": "Ch_12"
                     },
-                    "Channel13": {
-                        "parameter": "chan13_raw",
-                        "scale": 1.0,
-                        "units": "us"
+                    "chan13_raw": {
+                        "base_name": "Ch_13"
                     },
-                    "Channel14": {
-                        "parameter": "chan14_raw",
-                        "scale": 1.0,
-                        "units": "us"
+                    "chan14_raw": {
+                        "base_name": "Ch_14"
                     },
-                    "Channel15": {
-                        "parameter": "chan15_raw",
-                        "scale": 1.0,
-                        "units": "us"
+                    "chan15_raw": {
+                        "base_name": "Ch_15"
                     },
-                    "Channel16": {
-                        "parameter": "chan16_raw",
-                        "scale": 1.0,
-                        "units": "us"
+                    "chan16_raw": {
+                        "base_name": "Ch_16"
                     }
                 }
             },
             "SERVO_OUTPUT_RAW": {
                 "group": "SERVO",
                 "channel": {
-                    "Channel01": {
-                        "parameter": "servo1_raw",
-                        "scale": 1.0,
-                        "units": "us"
+                    "servo1_raw": {
+                        "base_name": "Ch_01"
                     },
-                    "Channel02": {
-                        "parameter": "servo2_raw",
-                        "scale": 1.0,
-                        "units": "us"
+                    "servo2_raw": {
+                        "base_name": "Ch_02"
                     },
-                    "Channel03": {
-                        "parameter": "servo3_raw",
-                        "scale": 1.0,
-                        "units": "us"
+                    "servo3_raw": {
+                        "base_name": "Ch_03"
                     },
-                    "Channel04": {
-                        "parameter": "servo4_raw",
-                        "scale": 1.0,
-                        "units": "us"
+                    "servo4_raw": {
+                        "base_name": "Ch_04"
                     },
-                    "Channel05": {
-                        "parameter": "servo5_raw",
-                        "scale": 1.0,
-                        "units": "us"
+                    "servo5_raw": {
+                        "base_name": "Ch_05"
                     },
-                    "Channel06": {
-                        "parameter": "servo6_raw",
-                        "scale": 1.0,
-                        "units": "us"
+                    "servo6_raw": {
+                        "base_name": "Ch_06"
                     },
-                    "Channel07": {
-                        "parameter": "servo7_raw",
-                        "scale": 1.0,
-                        "units": "us"
+                    "servo7_raw": {
+                        "base_name": "Ch_07"
                     },
-                    "Channel08": {
-                        "parameter": "servo8_raw",
-                        "scale": 1.0,
-                        "units": "us"
+                    "servo8_raw": {
+                        "base_name": "Ch_08"
                     },
-                    "Channel09": {
-                        "parameter": "servo9_raw",
-                        "scale": 1.0,
-                        "units": "us"
+                    "servo9_raw": {
+                        "base_name": "Ch_09"
                     },
-                    "Channel10": {
-                        "parameter": "servo10_raw",
-                        "scale": 1.0,
-                        "units": "us"
+                    "servo10_raw": {
+                        "base_name": "Ch_10"
                     },
-                    "Channel11": {
-                        "parameter": "servo11_raw",
-                        "scale": 1.0,
-                        "units": "us"
+                    "servo11_raw": {
+                        "base_name": "Ch_11"
                     },
-                    "Channel12": {
-                        "parameter": "servo12_raw",
-                        "scale": 1.0,
-                        "units": "us"
+                    "servo12_raw": {
+                        "base_name": "Ch_12"
                     },
-                    "Channel13": {
-                        "parameter": "servo13_raw",
-                        "scale": 1.0,
-                        "units": "us"
+                    "servo13_raw": {
+                        "base_name": "Ch_13"
                     },
-                    "Channel14": {
-                        "parameter": "servo14_raw",
-                        "scale": 1.0,
-                        "units": "us"
+                    "servo14_raw": {
+                        "base_name": "Ch_14"
                     },
-                    "Channel15": {
-                        "parameter": "servo15_raw",
-                        "scale": 1.0,
-                        "units": "us"
+                    "servo15_raw": {
+                        "base_name": "Ch_15"
                     },
-                    "Channel16": {
-                        "parameter": "servo16_raw",
-                        "scale": 1.0,
-                        "units": "us"
+                    "servo16_raw": {
+                        "base_name": "Ch_16"
                     }
                 }
             },
             "SYS_STATUS": {
                 "group": "SYS",
                 "channel": {
-                    "BatteryVoltage": {
-                        "parameter": "voltage_battery",
-                        "units": "V"
+                    "voltage_battery": {
+                        "base_name": "BatteryVoltage"
                     },
-                    "BatteryCurrent": {
-                        "parameter": "current_battery",
-                        "units": "A"
+                    "current_battery": {
+                        "base_name": "BatteryCurrent"
                     },
-                    "BatteryRemaining": {
-                        "parameter": "battery_remaining",
-                        "units": "%"
+                    "battery_remaining": {
+                        "base_name": "BatteryRemaining"
                     }
                 }
             },
             "VFR_HUD": {
                 "group": "VFR",
                 "channel": {
-                    "Airspeed": {
-                        "parameter": "airspeed",
-                        "units": "m/s"
+                    "airspeed": {
+                        "base_name": "Airspeed"
                     },
-                    "Groundspeed": {
-                        "parameter": "groundspeed",
-                        "units": "m/s"
+                    "groundspeed": {
+                        "base_name": "Groundspeed"
                     },
-                    "Heading": {
-                        "parameter": "heading",
-                        "units": "deg"
+                    "heading": {
+                        "base_name": "Heading"
                     },
-                    "Throttle": {
-                        "parameter": "throttle",
-                        "units": "%"
+                    "throttle": {
+                        "base_name": "Throttle"
                     },
-                    "Altitude": {
-                        "parameter": "alt",
-                        "units": "m"
+                    "alt": {
+                        "base_name": "Alt"
                     },
-                    "ClimbRate": {
-                        "parameter": "climb",
-                        "units": "m/s"
+                    "climb": {
+                        "base_name": "ClimbRate"
                     }
                 }
             }
@@ -428,6 +419,112 @@
             "RCIn",
             "RCOut"
         ],
+        "scaling": {
+            "s": {
+                "units_suffix": "s",
+                "scale": 1.0
+            },
+            "ms": {
+                "units_suffix": "ms",
+                "scale": 1.0
+            },
+            "us": {
+                "units_suffix": "us",
+                "scale": 1.0
+            },
+            "µs": {
+                "units_suffix": "us",
+                "scale": 1.0
+            },
+            "3600 W.s": {
+                "units_suffix": "3600 W.s",
+                "scale": 1.0
+            },
+            "m": {
+                "units_suffix": "m",
+                "scale": 1.0
+            },
+            "cm": {
+                "units_suffix": "m",
+                "scale": 1E-2
+            },
+            "mm": {
+                "units_suffix": "m",
+                "scale": 1E-3
+            },
+            "m/s": {
+                "units_suffix": "m/s",
+                "scale": 1.0
+            },
+            "cm/s": {
+                "units_suffix": "m/s",
+                "scale": 1E-2
+            },
+            "m/s/s": {
+                "units_suffix": "m/s/s",
+                "scale": 1.0
+            },
+            "d%": {
+                "units_suffix": "d%",
+                "scale": 1.0
+            },
+            "deg": {
+                "units_suffix": "deg",
+                "scale": 1.0
+            },
+            "deg/s": {
+                "units_suffix": "deg/s",
+                "scale": 1.0
+            },
+            "degC": {
+                "units_suffix": "degC",
+                "scale": 1.0
+            },
+            "degheading": {
+                "units_suffix": "deg",
+                "scale": 1.0
+            },
+            "deglatitude": {
+                "units_suffix": "deg",
+                "scale": 1.0
+            },
+            "deglongitude": {
+                "units_suffix": "deg",
+                "scale": 1.0
+            },
+            "Hz": {
+                "units_suffix": "Hz",
+                "scale": 1.0
+            },
+            "mGauss": {
+                "units_suffix": "mGauss",
+                "scale": 1.0
+            },
+            "Ohm": {
+                "units_suffix": "Ohm",
+                "scale": 1.0
+            },
+            "Pa": {
+                "units_suffix": "Pa",
+                "scale": 1.0
+            },
+            "rad": {
+                "units_suffix": "deg",
+                "scale": 57.2958
+            },
+            "rad/s": {
+                "units_suffix": "deg/s",
+                "scale": 57.2958
+            },
+            "satellites": {
+                "units_suffix": "",
+                "scale": 1.0
+            },
+            "V": {
+                "units_suffix": "V",
+                "scale": 1.0
+            }
+        },
         "dataflash_messages": {
             "ATT": {
                 "group": "ATT",
@@ -444,150 +541,94 @@
             "RCIN": {
                 "group": "RCIn",
                 "channel": {
-                    "Ch01": {
-                        "parameter": "C1",
-                        "scale": 1.0,
-                        "units": "us"
+                    "C1": {
+                        "base_name": "Ch_01"
                     },
-                    "Ch02": {
-                        "parameter": "C2",
-                        "scale": 1.0,
-                        "units": "us"
+                    "C2": {
+                        "base_name": "Ch_02"
                     },
-                    "Ch03": {
-                        "parameter": "C3",
-                        "scale": 1.0,
-                        "units": "us"
+                    "C3": {
+                        "base_name": "Ch_03"
                     },
-                    "Ch04": {
-                        "parameter": "C4",
-                        "scale": 1.0,
-                        "units": "us"
+                    "C4": {
+                        "base_name": "Ch_04"
                     },
-                    "Ch05": {
-                        "parameter": "C5",
-                        "scale": 1.0,
-                        "units": "us"
+                    "C5": {
+                        "base_name": "Ch_05"
                     },
-                    "Ch06": {
-                        "parameter": "C6",
-                        "scale": 1.0,
-                        "units": "us"
+                    "C6": {
+                        "base_name": "Ch_06"
                     },
-                    "Ch07": {
-                        "parameter": "C7",
-                        "scale": 1.0,
-                        "units": "us"
+                    "C7": {
+                        "base_name": "Ch_07"
                     },
-                    "Ch08": {
-                        "parameter": "C8",
-                        "scale": 1.0,
-                        "units": "us"
+                    "C8": {
+                        "base_name": "Ch_08"
                     },
-                    "Ch09": {
-                        "parameter": "C9",
-                        "scale": 1.0,
-                        "units": "us"
+                    "C9": {
+                        "base_name": "Ch_09"
                     },
-                    "Ch10": {
-                        "parameter": "C10",
-                        "scale": 1.0,
-                        "units": "us"
+                    "C10": {
+                        "base_name": "Ch_10"
                     },
-                    "Ch11": {
-                        "parameter": "C11",
-                        "scale": 1.0,
-                        "units": "us"
+                    "C11": {
+                        "base_name": "Ch_11"
                     },
-                    "Ch12": {
-                        "parameter": "C12",
-                        "scale": 1.0,
-                        "units": "us"
+                    "C12": {
+                        "base_name": "Ch_12"
                     },
-                    "Ch13": {
-                        "parameter": "C13",
-                        "scale": 1.0,
-                        "units": "us"
+                    "C13": {
+                        "base_name": "Ch_13"
                     },
-                    "Ch14": {
-                        "parameter": "C14",
-                        "scale": 1.0,
-                        "units": "us"
+                    "C14": {
+                        "base_name": "Ch_14"
                     }
                 }
             },
             "RCOU": {
                 "group": "RCOut",
                 "channel": {
-                    "Ch01": {
-                        "parameter": "C1",
-                        "scale": 1.0,
-                        "units": "us"
+                    "C1": {
+                        "base_name": "Ch_01"
                     },
-                    "Ch02": {
-                        "parameter": "C2",
-                        "scale": 1.0,
-                        "units": "us"
+                    "C2": {
+                        "base_name": "Ch_02"
                     },
-                    "Ch03": {
-                        "parameter": "C3",
-                        "scale": 1.0,
-                        "units": "us"
+                    "C3": {
+                        "base_name": "Ch_03"
                     },
-                    "Ch04": {
-                        "parameter": "C4",
-                        "scale": 1.0,
-                        "units": "us"
+                    "C4": {
+                        "base_name": "Ch_04"
                     },
-                    "Ch05": {
-                        "parameter": "C5",
-                        "scale": 1.0,
-                        "units": "us"
+                    "C5": {
+                        "base_name": "Ch_05"
                     },
-                    "Ch06": {
-                        "parameter": "C6",
-                        "scale": 1.0,
-                        "units": "us"
+                    "C6": {
+                        "base_name": "Ch_06"
                     },
-                    "Ch07": {
-                        "parameter": "C7",
-                        "scale": 1.0,
-                        "units": "us"
+                    "C7": {
+                        "base_name": "Ch_07"
                     },
-                    "Ch08": {
-                        "parameter": "C8",
-                        "scale": 1.0,
-                        "units": "us"
+                    "C8": {
+                        "base_name": "Ch_08"
                     },
-                    "Ch09": {
-                        "parameter": "C9",
-                        "scale": 1.0,
-                        "units": "us"
+                    "C9": {
+                        "base_name": "Ch_09"
                     },
-                    "Ch10": {
-                        "parameter": "C10",
-                        "scale": 1.0,
-                        "units": "us"
+                    "C10": {
+                        "base_name": "Ch_10"
                     },
-                    "Ch11": {
-                        "parameter": "C11",
-                        "scale": 1.0,
-                        "units": "us"
+                    "C11": {
+                        "base_name": "Ch_11"
                     },
-                    "Ch12": {
-                        "parameter": "C12",
-                        "scale": 1.0,
-                        "units": "us"
+                    "C12": {
+                        "base_name": "Ch_12"
                     },
-                    "Ch13": {
-                        "parameter": "C13",
-                        "scale": 1.0,
-                        "units": "us"
+                    "C13": {
+                        "base_name": "Ch_13"
                     },
-                    "Ch14": {
-                        "parameter": "C14",
-                        "scale": 1.0,
-                        "units": "us"
+                    "C14": {
+                        "base_name": "Ch_14"
                     }
                 }
             }

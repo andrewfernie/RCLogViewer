@@ -15,9 +15,9 @@ import subprocess
 from typing import List
 
 from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-                              QSplitter, QTabWidget, QSizePolicy,
-                              QFileDialog, QMessageBox, QProgressBar, QLabel,
-                              QScrollArea, QApplication)
+                               QSplitter, QTabWidget, QSizePolicy,
+                               QFileDialog, QMessageBox, QProgressBar, QLabel,
+                               QScrollArea, QApplication)
 
 from PySide6.QtCore import Qt, QTimer, QThread
 from PySide6.QtGui import QAction, QCloseEvent
@@ -131,9 +131,12 @@ class MainWindow(QMainWindow):
         self.tab_widget.addTab(self.gps_2d_map_panel, "GPS Map")
 
         # Connect plot panel x-limits changes to GPS panels
-        self.plot_panel.x_limits_changed.connect(self.gps_plot_panel.sync_x_limits)
-        self.plot_panel.x_limits_changed.connect(self.gps_3d_plot_panel.sync_x_limits)
-        self.plot_panel.x_limits_changed.connect(self.gps_2d_map_panel.sync_x_limits)
+        self.plot_panel.x_limits_changed.connect(
+            self.gps_plot_panel.sync_x_limits)
+        self.plot_panel.x_limits_changed.connect(
+            self.gps_3d_plot_panel.sync_x_limits)
+        self.plot_panel.x_limits_changed.connect(
+            self.gps_2d_map_panel.sync_x_limits)
 
         # Analysis tab (comprehensive log analysis)
         self.analysis_panel = AnalysisPanel()
@@ -178,7 +181,8 @@ class MainWindow(QMainWindow):
         self.export_kml_action = QAction("Export as K&ML file...", self)
         self.export_kml_action.setStatusTip("Export GPS data to KML file")
         self.export_kml_action.triggered.connect(self._export_as_kml)
-        self.export_kml_action.setEnabled(False)  # Disabled until GPS data is available
+        # Disabled until GPS data is available
+        self.export_kml_action.setEnabled(False)
         file_menu.addAction(self.export_kml_action)
 
         # View as KML action
@@ -187,7 +191,8 @@ class MainWindow(QMainWindow):
         self.view_kml_action.setStatusTip(
             "Export GPS data to KML and open with default application")
         self.view_kml_action.triggered.connect(self._view_as_kml)
-        self.view_kml_action.setEnabled(False)  # Disabled until GPS data is available
+        # Disabled until GPS data is available
+        self.view_kml_action.setEnabled(False)
         file_menu.addAction(self.view_kml_action)
 
         file_menu.addSeparator()
@@ -254,7 +259,8 @@ class MainWindow(QMainWindow):
         self.file_panel.file_selected.connect(self._load_file)
 
         # Channel panel signals
-        self.channel_panel.channels_selection_changed.connect(self._update_plot_selection)
+        self.channel_panel.channels_selection_changed.connect(
+            self._update_plot_selection)
 
     def _update_ui_state(self) -> None:
         """
@@ -264,7 +270,7 @@ class MainWindow(QMainWindow):
         """
 
         has_data = (self.processor.current_log is not None and
-                   self.processor.current_log.processed_data is not None)
+                    self.processor.current_log.processed_data is not None)
 
         # Update panels
         self.channel_panel.setEnabled(has_data)
@@ -272,9 +278,10 @@ class MainWindow(QMainWindow):
 
         # Check for GPS data availability
         has_gps_data = (has_data and
-                       'GPS.X (m)' in self.processor.current_log.channels and
-                       'GPS.Y (m)' in self.processor.current_log.channels)
-        self.tab_widget.setTabEnabled(self.tab_widget.indexOf(self.gps_plot_panel), has_gps_data)
+                        'GPS.X (m)' in self.processor.current_log.channels and
+                        'GPS.Y (m)' in self.processor.current_log.channels)
+        self.tab_widget.setTabEnabled(
+            self.tab_widget.indexOf(self.gps_plot_panel), has_gps_data)
 
         # Check for GPS 3D data availability (XY + altitude)
         # Look for various altitude column names
@@ -289,7 +296,8 @@ class MainWindow(QMainWindow):
                     break
 
         has_gps_3d_data = has_gps_data and gps_alt_column is not None
-        self.tab_widget.setTabEnabled(self.tab_widget.indexOf(self.gps_3d_plot_panel), has_gps_3d_data)
+        self.tab_widget.setTabEnabled(self.tab_widget.indexOf(
+            self.gps_3d_plot_panel), has_gps_3d_data)
 
         # Check for GPS lat/lon data for 2D map
         has_gps_latlon_data = False
@@ -300,10 +308,11 @@ class MainWindow(QMainWindow):
                 cl = ch.lower()
                 if lat_col is None and ("latitude" in cl or cl.endswith("lat") or ".lat" in cl):
                     lat_col = ch
-                if lon_col is None and ("longitude" in cl or cl.endswith("lon") or ".lon" in cl
-                                        or cl.endswith("lng")):
+                if lon_col is None and ("longitude" in cl or cl.endswith("lon") or ".lon" in cl or ".lng" in cl):
                     lon_col = ch
+
             has_gps_latlon_data = lat_col is not None and lon_col is not None
+
         self.tab_widget.setTabEnabled(self.tab_widget.indexOf(self.gps_2d_map_panel),
                                       has_gps_latlon_data)
 
@@ -312,9 +321,12 @@ class MainWindow(QMainWindow):
         self.export_kml_action.setEnabled(has_gps_latlon_data)
 
         # Enable/disable plotting, analysis, and data panels based on data availability
-        self.tab_widget.setTabEnabled(self.tab_widget.indexOf(self.plot_panel), has_data)
-        self.tab_widget.setTabEnabled(self.tab_widget.indexOf(self.analysis_panel), has_data)
-        self.tab_widget.setTabEnabled(self.tab_widget.indexOf(self.data_panel), has_data)
+        self.tab_widget.setTabEnabled(
+            self.tab_widget.indexOf(self.plot_panel), has_data)
+        self.tab_widget.setTabEnabled(
+            self.tab_widget.indexOf(self.analysis_panel), has_data)
+        self.tab_widget.setTabEnabled(
+            self.tab_widget.indexOf(self.data_panel), has_data)
 
         if has_data:
             # Update channel list
@@ -328,45 +340,95 @@ class MainWindow(QMainWindow):
             self.data_panel.update_data(self.processor.current_log)
 
             # Update GPS plot if GPS data is available
-            self.tab_widget.setTabEnabled(self.tab_widget.indexOf(self.gps_plot_panel), False)
+            self.tab_widget.setTabEnabled(
+                self.tab_widget.indexOf(self.gps_plot_panel), False)
             self.gps_plot_panel.clear_plot()
             if has_gps_data:
-                x_data = self.processor.get_channel_data('GPS.X (m)')
-                y_data = self.processor.get_channel_data('GPS.Y (m)')
-                time_data = self.processor.get_time_data()  # Get time data for synchronization
+                x_data_full = self.processor.get_channel_data('GPS.X (m)')
+                y_data_full = self.processor.get_channel_data('GPS.Y (m)')
+                time_data_full = self.processor.get_time_data()
+
+                # Because each line (or message) in the input log file creates its own line in
+                # the dataframe, and each line in the dataframe contains all channels, we can
+                # end up with many duplicate points. So, create new arrays that only contain
+                # values that are different from the previous values.
+                x_data = []
+                y_data = []
+                time_data = []
+                for i in range(len(x_data_full)):
+                    if i == 0 or (x_data_full[i] != x_data_full[i - 1] or y_data_full[i] != y_data_full[i - 1]):
+                        x_data.append(x_data_full[i])
+                        y_data.append(y_data_full[i])
+                        time_data.append(time_data_full[i])
+
                 if x_data is not None and y_data is not None:
-                    self.gps_plot_panel.plot_gps_trajectory(x_data, y_data, time_data)
-                    self.tab_widget.setTabEnabled(self.tab_widget.indexOf(self.gps_plot_panel),True)
+                    self.gps_plot_panel.plot_gps_trajectory(
+                        x_data, y_data, time_data)
+                    self.tab_widget.setTabEnabled(
+                        self.tab_widget.indexOf(self.gps_plot_panel), True)
 
             # Update GPS 2D Map if lat/lon data is available
-            self.tab_widget.setTabEnabled(self.tab_widget.indexOf(self.gps_2d_map_panel), False)
+            self.tab_widget.setTabEnabled(
+                self.tab_widget.indexOf(self.gps_2d_map_panel), False)
             self.gps_2d_map_panel.clear()
             if has_gps_latlon_data and lat_col and lon_col:
-                latitudes = self.processor.get_channel_data(lat_col)
-                longitudes = self.processor.get_channel_data(lon_col)
-                time_data = self.processor.get_time_data()  # Get time data for synchronization
+                latitudes_full = self.processor.get_channel_data(lat_col)
+                longitudes_full = self.processor.get_channel_data(lon_col)
+                time_data_full = self.processor.get_time_data()
+
+                # Remove duplicate (repeated) points
+                latitudes = []
+                longitudes = []
+                time_data = []
+                for i in range(len(latitudes_full)):
+                    if i == 0 or (latitudes_full[i] != latitudes_full[i - 1] or
+                                  longitudes_full[i] != longitudes_full[i - 1]):
+                        latitudes.append(latitudes_full[i])
+                        longitudes.append(longitudes_full[i])
+                        time_data.append(time_data_full[i])
+
                 if latitudes is not None and longitudes is not None:
-                    self.gps_2d_map_panel.render_gps_path(latitudes, longitudes, time_data)
-                    self.tab_widget.setTabEnabled(self.tab_widget.indexOf(self.gps_2d_map_panel), True)
+                    self.gps_2d_map_panel.render_gps_path(
+                        latitudes, longitudes, time_data)
+                    self.tab_widget.setTabEnabled(
+                        self.tab_widget.indexOf(self.gps_2d_map_panel), True)
 
             # Update GPS 3D plot if GPS 3D data is available
-            self.tab_widget.setTabEnabled(self.tab_widget.indexOf(self.gps_3d_plot_panel), False)
+            self.tab_widget.setTabEnabled(
+                self.tab_widget.indexOf(self.gps_3d_plot_panel), False)
             self.gps_3d_plot_panel.clear_plot()
             if has_gps_3d_data:
-                x_data = self.processor.get_channel_data('GPS.X (m)')
-                y_data = self.processor.get_channel_data('GPS.Y (m)')
-                z_data = self.processor.get_channel_data(gps_alt_column)
-                time_data = self.processor.get_time_data()  # Get time data for synchronization
+                x_data_full = self.processor.get_channel_data('GPS.X (m)')
+                y_data_full = self.processor.get_channel_data('GPS.Y (m)')
+                z_data_full = self.processor.get_channel_data(gps_alt_column)
+                time_data_full = self.processor.get_time_data()
+
+                # Remove duplicate (repeated) points
+                x_data = []
+                y_data = []
+                z_data = []
+                time_data = []
+                for i in range(len(x_data_full)):
+                    if i == 0 or (x_data_full[i] != x_data_full[i - 1]
+                                  or y_data_full[i] != y_data_full[i - 1]
+                                  or z_data_full[i] != z_data_full[i - 1]):
+                        x_data.append(x_data_full[i])
+                        y_data.append(y_data_full[i])
+                        z_data.append(z_data_full[i])
+                        time_data.append(time_data_full[i])
+
                 if x_data is not None and y_data is not None and z_data is not None:
-                    self.gps_3d_plot_panel.plot_gps_trajectory_3d(x_data, y_data, z_data, time_data)
-                    self.tab_widget.setTabEnabled(self.tab_widget.indexOf(self.gps_3d_plot_panel), True)
+                    self.gps_3d_plot_panel.plot_gps_trajectory_3d(
+                        x_data, y_data, z_data, time_data)
+                    self.tab_widget.setTabEnabled(
+                        self.tab_widget.indexOf(self.gps_3d_plot_panel), True)
 
             # Update status
             metadata = self.processor.current_log.metadata
             duration = metadata.get('duration', 0)
             info_text = f"Samples: {metadata.get('num_samples', 0)} | "
             info_text += f"Channels: {metadata.get('num_channels', 0)} | "
-            info_text += f"Duration: {duration:.2f}s ({duration/60:.0f}:{duration%60:02.0f})"
+            info_text += f"Duration: {duration:.2f}s ({duration/60:.0f}:{duration % 60:02.0f})"
             self.file_info_label.setText(info_text)
         else:
             self.channel_panel.clear()
@@ -390,7 +452,7 @@ class MainWindow(QMainWindow):
         if file_path:
             self._load_file(file_path)
 
-    def _load_file(self, file_path: str ) -> None:
+    def _load_file(self, file_path: str) -> None:
         """
         Load the selected log file and update all relevant panels and UI elements.
 
@@ -413,7 +475,8 @@ class MainWindow(QMainWindow):
                 QApplication.processEvents()
 
             # Load the file
-            success = self.processor.load_file(file_path, self.config, progress_callback)
+            success = self.processor.load_file(
+                file_path, self.config, progress_callback)
 
             if success:
                 self.status_label.setText("File loaded successfully")
@@ -427,7 +490,8 @@ class MainWindow(QMainWindow):
                     self.filetype_config = self.config["bin_file"]
 
                 self._update_ui_state()
-                QTimer.singleShot(3000, lambda: self.status_label.setText("Ready"))
+                QTimer.singleShot(
+                    3000, lambda: self.status_label.setText("Ready"))
             else:
                 self.status_label.setText("Failed to load file")
                 self.filetype = ""
@@ -436,7 +500,8 @@ class MainWindow(QMainWindow):
                     "Load Error",
                     "Failed to load the selected file. Please check the file format."
                 )
-                QTimer.singleShot(3000, lambda: self.status_label.setText("Ready"))
+                QTimer.singleShot(
+                    3000, lambda: self.status_label.setText("Ready"))
         except Exception as e:
             self.status_label.setText("Failed to load file")
             QMessageBox.warning(
@@ -478,13 +543,15 @@ class MainWindow(QMainWindow):
             if len(selected_channels) == 1:
                 self.status_label.setText(f"Plotted: {selected_channels[0]}")
             else:
-                self.status_label.setText(f"Plotted {len(channel_data)} channels")
+                self.status_label.setText(
+                    f"Plotted {len(channel_data)} channels")
             QTimer.singleShot(2000, lambda: self.status_label.setText("Ready"))
 
     def _export_data(self) -> None:
         """Export filtered data to CSV."""
         if self.processor.current_log is None:
-            QMessageBox.information(self, "No Data", "No log file is currently loaded.")
+            QMessageBox.information(
+                self, "No Data", "No log file is currently loaded.")
             return
 
         file_path, _ = QFileDialog.getSaveFileName(
@@ -504,9 +571,11 @@ class MainWindow(QMainWindow):
             )
 
             if success:
-                QMessageBox.information(self, "Export Complete", f"Data exported to {file_path}")
+                QMessageBox.information(
+                    self, "Export Complete", f"Data exported to {file_path}")
             else:
-                QMessageBox.warning(self, "Export Error", "Failed to export data.")
+                QMessageBox.warning(self, "Export Error",
+                                    "Failed to export data.")
 
     def _export_as_kml(self) -> None:
         """
@@ -523,7 +592,8 @@ class MainWindow(QMainWindow):
         """
 
         if self.processor.current_log is None:
-            QMessageBox.information(self, "No Data", "No log file is currently loaded.")
+            QMessageBox.information(
+                self, "No Data", "No log file is currently loaded.")
             return
 
         # Generate default filename based on current log file
@@ -570,8 +640,9 @@ class MainWindow(QMainWindow):
         try:
             # Get a unique temporary filename without keeping the file open
             fd, temp_base_path = tempfile.mkstemp()
-            os.close(fd) # Close the file descriptor immediately
-            os.remove(temp_base_path) # Remove the empty file created by mkstemp
+            os.close(fd)  # Close the file descriptor immediately
+            # Remove the empty file created by mkstemp
+            os.remove(temp_base_path)
             temp_path = f"{temp_base_path}.kml"
 
             # Generate KML file
@@ -613,7 +684,8 @@ class MainWindow(QMainWindow):
         """
 
         if self.processor.current_log is None:
-            QMessageBox.warning(self, "No Data", "No log file is currently loaded.")
+            QMessageBox.warning(
+                self, "No Data", "No log file is currently loaded.")
             return
 
         # Find GPS lat/lon columns and altitude column
@@ -624,8 +696,7 @@ class MainWindow(QMainWindow):
             cl = ch.lower()
             if lat_col is None and ("latitude" in cl or cl.endswith("lat") or ".lat" in cl):
                 lat_col = ch
-            if lon_col is None and ("longitude" in cl or cl.endswith("lon") or ".lon" in cl
-                                    or cl.endswith("lng")):
+            if lon_col is None and ("longitude" in cl or cl.endswith("lon") or ".lon" in cl or ".lng" in cl):
                 lon_col = ch
             if alt_col is None and ("gps alt" in cl or "gps.alt" in cl or "altitude" in cl
                                     or cl.endswith("alt")):
@@ -645,11 +716,13 @@ class MainWindow(QMainWindow):
             altitudes = self.processor.get_channel_data(alt_col)
 
         if latitudes is None or longitudes is None:
-            QMessageBox.warning(self, "Data Error", "Failed to retrieve GPS coordinate data.")
+            QMessageBox.warning(self, "Data Error",
+                                "Failed to retrieve GPS coordinate data.")
             return
 
         if len(latitudes) == 0 or len(longitudes) == 0:
-            QMessageBox.warning(self, "No GPS Data", "GPS coordinate data is empty.")
+            QMessageBox.warning(self, "No GPS Data",
+                                "GPS coordinate data is empty.")
             return
 
         try:
@@ -679,6 +752,15 @@ class MainWindow(QMainWindow):
         if altitudes is not None:
             data_length = min(data_length, len(altitudes))
 
+        # Because each line (or message) in the input log file creates its own line in the dataframe, and
+        # each line in the dataframe contains all channels, we can end up with many duplicate points.
+        # While there doesn't seem to be a defined limit to the number of points in a kml file, eventually
+        # the programs that render the kml (e.g. Google Earth) will refuse to display it.  So, we only keep
+        # the last unique point for each (lat, lon, alt) combination.
+        last_lat = None
+        last_lon = None
+        last_alt = None
+
         for i in range(data_length):
             try:
                 lat = float(latitudes[i])
@@ -688,11 +770,30 @@ class MainWindow(QMainWindow):
                     if altitudes is not None:
                         try:
                             alt = float(altitudes[i])
-                            valid_coords.append((lon, lat, alt))  # KML uses lon,lat,alt order
+                            # KML uses lon,lat,alt order
+                            if lat != last_lat or lon != last_lon or alt != last_alt:
+                                valid_coords.append((lon, lat, alt))
+                                last_lat = lat
+                                last_lon = lon
+                                last_alt = alt
+
                         except (ValueError, TypeError):
-                            valid_coords.append((lon, lat, 0))  # Default altitude to 0 if invalid
+                            # Default altitude to 0 if invalid
+                            alt = 0
+                            if lat != last_lat or lon != last_lon or alt != last_alt:
+                                valid_coords.append((lon, lat, alt))
+                                last_lat = lat
+                                last_lon = lon
+                                last_alt = alt
                     else:
-                        valid_coords.append((lon, lat, 0))  # Default altitude to 0 if no alt. data
+                        # Default altitude to 0 if no alt. data
+                        alt = 0
+                        if lat != last_lat or lon != last_lon or alt != last_alt:
+                            valid_coords.append((lon, lat, alt))
+                            last_lat = lat
+                            last_lon = lon
+                            last_alt = alt
+
             except (ValueError, TypeError):
                 continue
 
@@ -757,7 +858,8 @@ class MainWindow(QMainWindow):
     </Placemark>'''
 
         # Track line with altitude
-        coordinates_str = " ".join([f"{lon},{lat},{alt}" for lon, lat, alt in valid_coords])
+        coordinates_str = " ".join(
+            [f"{lon},{lat},{alt}" for lon, lat, alt in valid_coords])
         track_description = f"GPS track from {lat_col_name} and {lon_col_name}"
         if altitudes is not None and alt_col_name:
             track_description += f" with altitude from {alt_col_name}"

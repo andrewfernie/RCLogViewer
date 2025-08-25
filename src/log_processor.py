@@ -76,13 +76,16 @@ class LogProcessor:
             if path.suffix.lower() == '.csv':
                 # retrieve the section of config_string related to CSV
                 csv_config = config["csv_file"]
-                success = self._parse_csv_file(path, csv_config, progress_callback)
+                success = self._parse_csv_file(
+                    path, csv_config, progress_callback)
             elif path.suffix.lower() == '.tlog':
                 tlog_config = config["tlog_file"]
-                success = self._parse_tlog_file(path, tlog_config, progress_callback)
+                success = self._parse_tlog_file(
+                    path, tlog_config, progress_callback)
             elif path.suffix.lower() == '.bin':
                 bin_config = config["bin_file"]
-                success = self._parse_bin_file(path, bin_config, progress_callback)
+                success = self._parse_bin_file(
+                    path, bin_config, progress_callback)
             else:
                 success = False
 
@@ -120,7 +123,7 @@ class LogProcessor:
             percent_complete = 0
             if progress_callback:
                 progress_callback(percent_complete)
-            df = pd.read_csv(file_path,on_bad_lines='skip')
+            df = pd.read_csv(file_path, on_bad_lines='skip')
 
             percent_complete = 100
             if progress_callback:
@@ -222,10 +225,10 @@ class LogProcessor:
                 df['POWER.LiPo.Total (V)'] = df[lipo_cols].sum(axis=1)
                 import_status += "Generated 'LiPo.Total (V)' data.\n"
 
-
             # Compute Power(W) if VFAS(V) and Current(A) are present
             if 'POWER.VFAS (V)' in df.columns and 'POWER.Current (A)' in df.columns:
-                df['POWER.Power (W)'] = df['POWER.VFAS (V)'] * df['POWER.Current (A)']
+                df['POWER.Power (W)'] = df['POWER.VFAS (V)'] * \
+                    df['POWER.Current (A)']
                 import_status += "Generated 'Power (W)' data.\n"
 
             # Sort columns alphabetically
@@ -269,26 +272,11 @@ class LogProcessor:
             # done in the config file through an object "mavlink_messages".
             desired_msg_types = list(config.get("mavlink_messages", {}).keys())
 
-            # Define a scaling dictionary for unit conversions. The names are those found in the
-            # pymavlink message fieldunits_by_name attribute.
-            scaling_dict = {
-                "degE5": 1e-5,
-                "degE7": 1e-7,
-                "us": 1e-6,
-                "cm": 1e-2,
-                "mm": 1e-3,
-                "cm/s": 1e-2,
-                "mm/s": 1e-3,
-                "cdeg": 1e-2,
-                "rad": np.rad2deg(1),
-                "rad/s": np.rad2deg(1),
-                "mV": 1e-3,
-                "deg": 1,
-                "%": 1,
-                "cA": 1e-2
-            }
+            # Retrieve the scaling dictionary for unit conversions from the config file. The names
+            # are those found in the pymavlink message fieldunits_by_name attribute.
+            scaling_dict = config.get("scaling", {})
 
-            # Iterate through all messages in the tlog
+            # Iterate through all messages in the log file
             while True:
                 msg = mlog.recv_match(type=desired_msg_types, blocking=False)
                 if msg is None:
@@ -299,44 +287,73 @@ class LogProcessor:
                     progress_callback(percent_complete)
 
                 msg_datetime = pd.to_datetime(datetime.fromtimestamp(msg._timestamp
-                                ).strftime('%Y-%m-%d %H:%M:%S.%f'))
+                                                                     ).strftime('%Y-%m-%d %H:%M:%S.%f'))
 
                 msg_dict = msg.to_dict()
 
                 # Get the "group" to which each parameter is assigned, and to be used as the prefix to the DataFrame column.
-                msg_group = config.get("mavlink_messages", {}).get(msg.get_type(), {}).get("group", "UNKNOWN")
+                msg_group = config.get("mavlink_messages", {}).get(
+                    msg.get_type(), {}).get("group", "UNKNOWN")
 
-                # Map message fields to DataFrame columns
-                msg_fields = config.get("mavlink_messages", {}).get(msg.get_type(), {}).get("channel", {})
+                # Get the timestamp for this message and make it the first entry in the data_list
+                data_list = {'DateTime': msg_datetime}
 
-                # Get the units for each field (parameter) in the message
+                # Check the field "all_channels", which indicates that all channels found in the message
+                # should be imported.
+                all_channels = config.get("mavlink_messages", {}).get(
+                    msg.get_type(), {}).get("all_channels", 0)
+
+                fieldnames = msg.get_fieldnames()
+                num_fields = len(fieldnames)
+
+                # Find the fields listed in the config file we said we are interested in
+                config_msg_fields = config.get("mavlink_messages", {}).get(
+                    msg.get_type(), {}).get("channel", {})
+
+                # Get the units for each field (channel) in the message
                 msg_units = msg.fieldunits_by_name
 
-                # Get the timestamp for this message
-                data_list =  {'DateTime': msg_datetime}
+                for i in range(num_fields):
+                    field_name = fieldnames[i]
 
-                # Extract the relevant data from the message
-                for field_name, field_info in msg_fields.items():
-                    df_col_name = f"{msg_group}.{field_name}"
-                    df_param_name = field_info.get("parameter")
-                    df_col_value = msg_dict.get(df_param_name)
+                    # Don't bother with any field name starting with "time_" - we already have the message
+                    # timestamp.
+                    if (not field_name.startswith("time_") and
+                        (all_channels > 0 or field_name in config_msg_fields)):
+                        field_info = msg_dict.get(field_name, {})
+                        field_units = msg_units.get(field_name, None)
+                        this_config_msg_field = config_msg_fields.get(field_name, {})
 
-                    param_scale = field_info.get("scale",None)
-                    param_units = field_info.get("units",None)
+                        if this_config_msg_field is not None:
+                            base_name = this_config_msg_field.get("base_name", field_name)
+                        else:
+                            base_name = field_name
 
-                    if param_scale is not None and isinstance(df_col_value,(int,float)):
-                        df_col_value = df_col_value * param_scale
-                    else:
-                        # Get the fieldunits_by_name for this parameter
-                        df_col_units = msg_units.get(df_param_name, None)
+                        if field_units is not None:
+                            scaling_info = scaling_dict.get(field_units, None)
+                        else:
+                            scaling_info = None
 
-                        if df_col_units is not None and isinstance(df_col_value,(int,float)):
-                            df_col_value = df_col_value * scaling_dict.get(df_col_units, 1)
+                        if scaling_info is not None:
+                            field_units_suffix = scaling_info.get("units_suffix", "")
+                        else:
+                            field_units_suffix = ""
 
-                    if param_units is not None:
-                        df_col_name = f"{df_col_name} ({param_units})"
+                        if field_units_suffix == "":
+                            df_col_name = f"{msg_group}.{base_name}"
+                        else:
+                            df_col_name = f"{msg_group}.{base_name} ({field_units_suffix})"
 
-                    if df_col_value is not None:
+                        if scaling_info is not None:
+                            scale = scaling_info.get("scale", 1)
+                        else:
+                            scale = 1
+
+                        if field_units is not None and isinstance(field_info, (int, float)):
+                            df_col_value = field_info * scale
+                        else:
+                            df_col_value = field_info
+
                         data_list.update({df_col_name: df_col_value})
 
                 if len(data_list) > 1:
@@ -360,11 +377,17 @@ class LogProcessor:
             else:
                 df['ElapsedTime'] = None
 
-            # Compute X/Y excursions in meters from center GPS point if GPS columns exist
-            if 'GPS.Longitude' in df.columns and 'GPS.Latitude' in df.columns:
+            # Compute X/Y excursions in meters from center GPS point if GPS columns exist\
+            # If there is a column in df that starts with 'GPS.Longitude'
+
+            # Find a column in df that starts with 'GPS.Latitude'
+            lat_col = df.columns[df.columns.str.startswith('GPS.Latitude')]
+            lon_col = df.columns[df.columns.str.startswith('GPS.Longitude')]
+
+            if lon_col is not None and lat_col is not None:
                 # Convert to float in case they are strings
-                df['GPS.LongitudeFloat'] = df['GPS.Longitude'].astype(float)
-                df['GPS.LatitudeFloat'] = df['GPS.Latitude'].astype(float)
+                df['GPS.LongitudeFloat'] = df[lon_col].astype(float)
+                df['GPS.LatitudeFloat'] = df[lat_col].astype(float)
                 lon0 = df['GPS.LongitudeFloat'].mean()
                 lat0 = df['GPS.LatitudeFloat'].mean()
                 # Use pyproj for accurate projection (WGS84)
@@ -381,7 +404,8 @@ class LogProcessor:
 
             # Compute Power(W) if SYS.BatteryVoltage(V) and SYS.BatteryCurrent(A) are present
             if 'SYS.BatteryVoltage (V)' in df.columns and 'SYS.BatteryCurrent (A)' in df.columns:
-                df['SYS.Power (W)'] = df['SYS.BatteryVoltage (V)'] * df['SYS.BatteryCurrent (A)']
+                df['SYS.Power (W)'] = df['SYS.BatteryVoltage (V)'] * \
+                    df['SYS.BatteryCurrent (A)']
                 import_status += "Generated 'Power (W)' data.\n"
 
             # Sort columns alphabetically
@@ -427,42 +451,14 @@ class LogProcessor:
             # are interested in, and this is done in the config file through an object
             # "dataflash_messages".
 
+            desired_msg_types = list(config.get(
+                "dataflash_messages", {}).keys())
 
-            desired_msg_types = list(config.get("dataflash_messages", {}).keys())
+            # Retrieve the scaling dictionary for unit conversions from the config file. The names
+            # are those found in the pymavlink message fieldunits_by_name attribute.
+            scaling_dict = config.get("scaling", {})
 
-            # Define a scaling dictionary for unit conversions. The names are those found in the
-            # pymavlink message fieldunits_by_name attribute.
-            scaling_dict = {
-                "µs": 1.0,
-                "3600 W.s": 1.0,
-                "A": 1.0,
-                "B": 1.0,
-                "cm": 1E-2,
-                "cm/s": 1E-2,
-                "d%": 1.0,
-                "deg": 1.0,
-                "deg/s": 1.0,
-                "degC": 1.0,
-                "degheading": 1.0,
-                "deglatitude": 1.0,
-                "deglongitude": 1.0,
-                "Hz": 1.0,
-                "instance": 1.0,
-                "m": 1.0,
-                "m/s": 1.0,
-                "m/s/s": 1.0,
-                "mGauss": 1.0,
-                "ms": 1.0,
-                "Ohm": 1.0,
-                "Pa": 1.0,
-                "rad": np.rad2deg(1),
-                "rad/s": np.rad2deg(1),
-                "satellites": 1.0,
-                "us": 1.0,
-                "V": 1.0
-            }
-
-            # Iterate through all messages in the tlog
+            # Iterate through all messages in the log file
             while True:
                 msg = mlog.recv_match(type=desired_msg_types, blocking=False)
                 if msg is None:
@@ -474,73 +470,75 @@ class LogProcessor:
 
                 # Get the timestamp for this message
                 msg_datetime = pd.to_datetime(datetime.fromtimestamp(msg._timestamp
-                                ).strftime('%Y-%m-%d %H:%M:%S.%f'))
-
-                data_list =  {'DateTime': msg_datetime}
+                                                                     ).strftime('%Y-%m-%d %H:%M:%S.%f'))
 
                 msg_dict = msg.to_dict()
 
                 # Get the "group" to which each parameter is assigned, and to be used as the prefix to the DataFrame column.
-                msg_group = config.get("dataflash_messages", {}).get(msg.get_type(), {}).get("group", "UNKNOWN")
+                msg_group = config.get("dataflash_messages", {}).get(
+                    msg.get_type(), {}).get("group", "UNKNOWN")
 
-                # Get the units for each field (parameter) in the message
-                msg_units = msg.fmt.units
+                # Get the timestamp for this message and make it the first entry in the data_list
+                data_list = {'DateTime': msg_datetime}
 
                 # Check the field "all_channels", which indicates that all channels found in the message
                 # should be imported.
-                all_channels = config.get("dataflash_messages", {}).get(msg.get_type(), {}).get("all_channels", 0)
-                if all_channels > 0:
-                    # Map all message fields to DataFrame columns
+                all_channels = config.get("dataflash_messages", {}).get(
+                    msg.get_type(), {}).get("all_channels", 0)
 
-                    fieldnames = msg.get_fieldnames()
+                fieldnames = msg.get_fieldnames()
+                num_fields = len(fieldnames)
 
-                    num_fields = len(fieldnames)
+                # Find the fields listed in the config file we said we are interested in
+                config_msg_fields = config.get("dataflash_messages", {}).get(
+                    msg.get_type(), {}).get("channel", {})
 
-                    for i in range(num_fields):
-                        field_name = fieldnames[i]
+                # Get the units for each field (channel) in the message
+                msg_units = msg.fmt.units
 
-                        # Don't bother with the "TimeUS" field - we already have the message
-                        # timestamp.
-                        if field_name != "TimeUS":
-                            field_info = msg_dict.get(field_name, {})
-                            field_units = msg_units[i]
-                            df_col_name = f"{msg_group}.{field_name} ({field_units})"
+                for i in range(num_fields):
+                    field_name = fieldnames[i]
 
-                            if field_units is not None and isinstance(field_info,(int,float)):
-                                df_col_value = field_info * scaling_dict.get(field_units, 1)
-                            else:
-                                df_col_value = field_info
+                    # Don't bother with any field name starting with "TimeUS" - we already have the message
+                    # timestamp.
+                    if (not field_name.startswith("TimeUS") and
+                        (all_channels > 0 or field_name in config_msg_fields)):
+                        field_info = msg_dict.get(field_name, {})
+                        field_units = msg_units[i]
+                        this_config_msg_field = config_msg_fields.get(field_name, {})
 
-                            data_list.update({df_col_name: df_col_value})
-
-                else:
-
-                    # Map the message fields identified in the config file to DataFrame columns
-                    msg_fields = config.get("dataflash_messages", {}).get(msg.get_type(), {}).get("channel", {})
-
-                    # Extract the relevant data from the message
-                    for field_name, field_info in msg_fields.items():
-                        df_col_name = f"{msg_group}.{field_name}"
-                        df_param_name = field_info.get("parameter")
-                        df_col_value = msg_dict.get(df_param_name)
-
-                        param_scale = field_info.get("scale",None)
-                        param_units = field_info.get("units",None)
-
-                        if param_scale is not None and isinstance(df_col_value,(int,float)):
-                            df_col_value = df_col_value * param_scale
+                        if this_config_msg_field is not None:
+                            base_name = this_config_msg_field.get("base_name", field_name)
                         else:
-                            # Get the fieldunits_by_name for this parameter
-                            df_col_units = msg_units.get(df_param_name, None)
+                            base_name = field_name
 
-                            if df_col_units is not None and isinstance(df_col_value,(int,float)):
-                                df_col_value = df_col_value * scaling_dict.get(df_col_units, 1)
+                        if field_units is not None:
+                            scaling_info = scaling_dict.get(field_units, None)
+                        else:
+                            scaling_info = None
 
-                        if param_units is not None:
-                            df_col_name = f"{df_col_name} ({param_units})"
+                        if scaling_info is not None:
+                            field_units_suffix = scaling_info.get("units_suffix", "")
+                        else:
+                            field_units_suffix = ""
 
-                        if df_col_value is not None:
-                            data_list.update({df_col_name: df_col_value})
+                        if field_units_suffix == "":
+                            df_col_name = f"{msg_group}.{base_name}"
+                        else:
+                            df_col_name = f"{msg_group}.{base_name} ({field_units_suffix})"
+
+                        if scaling_info is not None:
+                            scale = scaling_info.get("scale", 1)
+                        else:
+                            scale = 1
+
+                        if field_units is not None and isinstance(field_info, (int, float)):
+                            df_col_value = field_info * scale
+                        else:
+                            df_col_value = field_info
+
+                        data_list.update({df_col_name: df_col_value})
+
 
                 if len(data_list) > 1:
                     data.append(data_list)
@@ -563,13 +561,22 @@ class LogProcessor:
             else:
                 df['ElapsedTime'] = None
 
-            # Compute X/Y excursions in meters from center GPS point if GPS columns exist
-            if 'GPS.Longitude' in df.columns and 'GPS.Latitude' in df.columns:
+            # Find a column in df that starts with 'GPS.Lat' or 'GPS.Lon'
+            lat_col = df.columns[df.columns.str.startswith('GPS.Lat')]
+            lon_col = df.columns[df.columns.str.startswith('GPS.Lon')]
+
+            # Some longitude fields in dataflash logs start with "Lng" rather than "Lon"
+            if lon_col.empty:
+                lon_col = df.columns[df.columns.str.startswith('GPS.Lng')]
+
+            if not lon_col.empty and not lat_col.empty:
+                # Compute X/Y excursions in meters from center GPS point if GPS columns exist
                 # Convert to float in case they are strings
-                df['GPS.LongitudeFloat'] = df['GPS.Longitude'].astype(float)
-                df['GPS.LatitudeFloat'] = df['GPS.Latitude'].astype(float)
+                df['GPS.LongitudeFloat'] = df[lon_col].astype(float)
+                df['GPS.LatitudeFloat'] = df[lat_col].astype(float)
                 lon0 = df['GPS.LongitudeFloat'].mean()
                 lat0 = df['GPS.LatitudeFloat'].mean()
+
                 # Use pyproj for accurate projection (WGS84)
                 proj = Proj(proj='aeqd', lat_0=lat0, lon_0=lon0, datum='WGS84')
                 x, y = proj(df['GPS.LongitudeFloat'].values,
@@ -582,11 +589,6 @@ class LogProcessor:
             else:
                 import_status += "No GPS data found.\n"
 
-            # Compute Power(W) if SYS.BatteryVoltage(V) and SYS.BatteryCurrent(A) are present
-            if 'SYS.BatteryVoltage (V)' in df.columns and 'SYS.BatteryCurrent (A)' in df.columns:
-                df['SYS.Power (W)'] = df['SYS.BatteryVoltage (V)'] * df['SYS.BatteryCurrent (A)']
-                import_status += "Generated 'Power (W)' data.\n"
-
             # Sort columns alphabetically
             df = df[sorted(df.columns)]
 
@@ -596,9 +598,8 @@ class LogProcessor:
             return True
 
         except Exception as e:
-            print(f"Error parsing tlog file: {e}")
+            print(f"Error parsing bin file: {e}")
             return False
-
 
     def _extract_metadata(self):
         """
