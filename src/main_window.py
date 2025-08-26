@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                                QScrollArea, QApplication)
 
 from PySide6.QtCore import Qt, QTimer, QThread
-from PySide6.QtGui import QAction, QCloseEvent
+from PySide6.QtGui import QAction, QCloseEvent, QIcon
 
 from file_panel import FilePanel
 from channel_panel import ChannelPanel
@@ -47,6 +47,9 @@ class MainWindow(QMainWindow):
         """
 
         super().__init__()
+        # Set application window icon
+        icon_path = os.path.join(os.path.dirname(__file__), '../images/rclogviewer_icon.png')
+        self.setWindowIcon(QIcon(icon_path))
         self.processor = LogProcessor()
 
         # Read the contents of the configuration file "rclogviewer_config.json"
