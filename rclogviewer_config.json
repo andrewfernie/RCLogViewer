@@ -172,7 +172,7 @@
                 "scale": 1e-2
             }
         },
-        "mavlink_messages": {
+        "selected_messages": {
             "ATTITUDE": {
                 "group": "ATT",
                 "channel": {
@@ -525,7 +525,7 @@
                 "scale": 1.0
             }
         },
-        "dataflash_messages": {
+        "selected_messages": {
             "ATT": {
                 "group": "ATT",
                 "all_channels": 1

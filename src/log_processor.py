@@ -269,8 +269,8 @@ class LogProcessor:
             # We are concerned primarily with time series data, and even for time series data, the
             # content of the TLOG file will depend on the specific MAVLink messages being sent and
             # received. So, we need to define the message types we are interested in, and this is
-            # done in the config file through an object "mavlink_messages".
-            desired_msg_types = list(config.get("mavlink_messages", {}).keys())
+            # done in the config file through an object "selected_messages".
+            desired_msg_types = list(config.get("selected_messages", {}).keys())
 
             # Retrieve the scaling dictionary for unit conversions from the config file. The names
             # are those found in the pymavlink message fieldunits_by_name attribute.
@@ -292,7 +292,7 @@ class LogProcessor:
                 msg_dict = msg.to_dict()
 
                 # Get the "group" to which each parameter is assigned, and to be used as the prefix to the DataFrame column.
-                msg_group = config.get("mavlink_messages", {}).get(
+                msg_group = config.get("selected_messages", {}).get(
                     msg.get_type(), {}).get("group", "UNKNOWN")
 
                 # Get the timestamp for this message and make it the first entry in the data_list
@@ -300,14 +300,14 @@ class LogProcessor:
 
                 # Check the field "all_channels", which indicates that all channels found in the message
                 # should be imported.
-                all_channels = config.get("mavlink_messages", {}).get(
+                all_channels = config.get("selected_messages", {}).get(
                     msg.get_type(), {}).get("all_channels", 0)
 
                 fieldnames = msg.get_fieldnames()
                 num_fields = len(fieldnames)
 
                 # Find the fields listed in the config file we said we are interested in
-                config_msg_fields = config.get("mavlink_messages", {}).get(
+                config_msg_fields = config.get("selected_messages", {}).get(
                     msg.get_type(), {}).get("channel", {})
 
                 # Get the units for each field (channel) in the message
@@ -449,10 +449,10 @@ class LogProcessor:
             # for time series data, the content of the bin will depend on how the flight
             # controller has been configured. So, we need to define the message types we
             # are interested in, and this is done in the config file through an object
-            # "dataflash_messages".
+            # "selected_messages".
 
             desired_msg_types = list(config.get(
-                "dataflash_messages", {}).keys())
+                "selected_messages", {}).keys())
 
             # Retrieve the scaling dictionary for unit conversions from the config file. The names
             # are those found in the pymavlink message fieldunits_by_name attribute.
@@ -475,7 +475,7 @@ class LogProcessor:
                 msg_dict = msg.to_dict()
 
                 # Get the "group" to which each parameter is assigned, and to be used as the prefix to the DataFrame column.
-                msg_group = config.get("dataflash_messages", {}).get(
+                msg_group = config.get("selected_messages", {}).get(
                     msg.get_type(), {}).get("group", "UNKNOWN")
 
                 # Get the timestamp for this message and make it the first entry in the data_list
@@ -483,14 +483,14 @@ class LogProcessor:
 
                 # Check the field "all_channels", which indicates that all channels found in the message
                 # should be imported.
-                all_channels = config.get("dataflash_messages", {}).get(
+                all_channels = config.get("selected_messages", {}).get(
                     msg.get_type(), {}).get("all_channels", 0)
 
                 fieldnames = msg.get_fieldnames()
                 num_fields = len(fieldnames)
 
                 # Find the fields listed in the config file we said we are interested in
-                config_msg_fields = config.get("dataflash_messages", {}).get(
+                config_msg_fields = config.get("selected_messages", {}).get(
                     msg.get_type(), {}).get("channel", {})
 
                 # Get the units for each field (channel) in the message
