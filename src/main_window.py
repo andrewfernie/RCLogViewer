@@ -909,7 +909,7 @@ class MainWindow(QMainWindow):
             self,
             "About RC Log Viewer",
             "<h3>RC Log Viewer</h3>"
-            "<p>Version 1.0.0</p>"
+            "<p>Version 1.1.0</p>"
             "<p>A tool for analyzing FrSky Ethos and Ardupilot log files.</p>"
             "<p>Built with PySide6, NumPy, Pandas, and Matplotlib.</p>"
         )

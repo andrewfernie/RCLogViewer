@@ -21,7 +21,7 @@ if requirements_path.exists():
 
 setup(
     name="rc-log-viewer-pyside",
-    version="1.0.0",
+    version="1.1.0",
     author="Andrew Fernie",
     author_email="andrewjfernie@gmail.com",
     description="An application for viewing and analyzing RC log files",

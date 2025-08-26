@@ -41,7 +41,8 @@ Example Usage:
     python main.py
 
 Version Information:
-    Version: 1.0.0 - Initial release
+    Version:    1.1.0 - Added support for .bin files and some general cleanup.
+                1.0.0 - Initial release
 """
 
 import sys
@@ -69,7 +70,12 @@ def main():
             - Appears in taskbar and application switching interfaces
             - Referenced in system settings and preferences
 
-        Version: 1.0.0"
+        Version:
+            1.1.0
+            - Added support for .bin files and some general cleanup.
+            - Moved scaling/units to configuration files.
+
+            1.0.0
             - Major version for first release
             - Used for compatibility checking and user feedback
             - Referenced in about dialogs and error reporting
@@ -97,7 +103,7 @@ def main():
 
     # Configure application metadata for system integration
     app.setApplicationName("RC Log Viewer")
-    app.setApplicationVersion("1.0.0")
+    app.setApplicationVersion("1.1.0")
     app.setOrganizationName("RadioControl")
 
     # Apply modern, cross-platform visual style
