@@ -42,7 +42,7 @@ The required packages are:
 
 ### Installation Option 2 (Windows only)
 
-On Windows, after cloning the repository execute "RCLogViewer.bat". It will check that python is installed and try to run the application. If this fails it will attempt tp install all required dependencies after which you can retry "RCLogViewer.bat"
+On Windows, after cloning the repository execute "RCLogViewer.bat". It will check that python is installed and try to run the application. If this fails it will attempt to install all required dependencies after which you can retry "RCLogViewer.bat"
 
 ## Usage
 
@@ -344,7 +344,7 @@ The imported data can be viewed in a tabular format in the Data View Panel.
 
 **Adding Support For Additional MAVLINK Messages In TLOG Files:**
 
-1. Other messages can be supported by adding them to the "selected_messages" section within the "tlog_file" section of the rclogviewer_config.json configuration file. The message definition can be found [here](https://mavlink.io/en/messages/common.html), but remember that there is no guarantee that a specific message will be in your log file. If you are not sure which messages are contained within your tlog file, open it in Mission Planner ("Telemetry Logs tab /  "Tlog > Kml or Graph" button / "Graph Log" button) to view the data contained in the TLOG file.
+1. Other messages can be supported by adding them to the "selected_messages" section within the "tlog_file" section of the rclogviewer_config.json configuration file. The message definition can be found [here](https://mavlink.io/en/messages/common.html), but remember that there is no guarantee that a specific message will be in your log file. If you are not sure which messages are contained within your tlog file, check the "File Information" tab within the "Analysis" panel to see lists of the messages found in the file and imported as well as the messages found in the file and not imported.
 
 2. Each section within the "selected_messages" section defines the processing for one type of mavlink message, with the name of the section being the name of the message, and the parameters of interest from that message being defined within.
 

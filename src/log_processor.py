@@ -44,6 +44,7 @@ class LogProcessor:
     def __init__(self):
         self.current_log: Optional[LogData] = None
         self.supported_formats = ['.csv', '.tlog', '.bin']
+        self.imported_message_types = []
 
     def load_file(self, file_path: str, config: Dict[str, Any], progress_callback=None) -> bool:
         """
@@ -238,6 +239,10 @@ class LogProcessor:
             self.current_log.processed_data = df
             self.current_log.channels = list(df.columns)
 
+            # We don't have any messages in a basic csv file
+            self.imported_message_types = []
+            self.nonimported_message_types = []
+
             return True
 
         except Exception as e:
@@ -261,6 +266,8 @@ class LogProcessor:
             # Open the tlog file using pymavlink
             mlog = mavutil.mavlink_connection(str(file_path))
             data = []
+            imported_message_types = []
+            nonimported_message_types = []
 
             # TLOG files are essentially records of MAVLINK messages.
             # See https://mavlink.io/en/messages/common.html for message definitions.
@@ -278,86 +285,101 @@ class LogProcessor:
 
             # Iterate through all messages in the log file
             while True:
-                msg = mlog.recv_match(type=desired_msg_types, blocking=False)
+                # msg = mlog.recv_match(type=desired_msg_types, blocking=False)
+                msg = mlog.recv_match(blocking=False)
+
                 if msg is None:
                     break
 
-                percent_complete = mlog.percent
-                if progress_callback:
-                    progress_callback(percent_complete)
+                if msg.get_type() in desired_msg_types:
 
-                msg_datetime = pd.to_datetime(datetime.fromtimestamp(msg._timestamp
-                                                                     ).strftime('%Y-%m-%d %H:%M:%S.%f'))
+                    # Track the message types present in the file but not imported
 
-                msg_dict = msg.to_dict()
+                    if msg.get_type() not in imported_message_types:
+                        imported_message_types.append(msg.get_type())
 
-                # Get the "group" to which each parameter is assigned, and to be used as the prefix to the DataFrame column.
-                msg_group = config.get("selected_messages", {}).get(
-                    msg.get_type(), {}).get("group", "UNKNOWN")
+                    percent_complete = mlog.percent
+                    if progress_callback:
+                        progress_callback(percent_complete)
 
-                # Get the timestamp for this message and make it the first entry in the data_list
-                data_list = {'DateTime': msg_datetime}
+                    msg_datetime = pd.to_datetime(datetime.fromtimestamp(msg._timestamp
+                                                                        ).strftime('%Y-%m-%d %H:%M:%S.%f'))
 
-                # Check the field "all_channels", which indicates that all channels found in the message
-                # should be imported.
-                all_channels = config.get("selected_messages", {}).get(
-                    msg.get_type(), {}).get("all_channels", 0)
+                    msg_dict = msg.to_dict()
 
-                fieldnames = msg.get_fieldnames()
-                num_fields = len(fieldnames)
+                    # Get the "group" to which each parameter is assigned, and to be used as the prefix to the DataFrame column.
+                    msg_group = config.get("selected_messages", {}).get(
+                        msg.get_type(), {}).get("group", "UNKNOWN")
 
-                # Find the fields listed in the config file we said we are interested in
-                config_msg_fields = config.get("selected_messages", {}).get(
-                    msg.get_type(), {}).get("channel", {})
+                    # Get the timestamp for this message and make it the first entry in the data_list
+                    data_list = {'DateTime': msg_datetime}
 
-                # Get the units for each field (channel) in the message
-                msg_units = msg.fieldunits_by_name
+                    # Check the field "all_channels", which indicates that all channels found in the message
+                    # should be imported.
+                    all_channels = config.get("selected_messages", {}).get(
+                        msg.get_type(), {}).get("all_channels", 0)
 
-                for i in range(num_fields):
-                    field_name = fieldnames[i]
+                    fieldnames = msg.get_fieldnames()
+                    num_fields = len(fieldnames)
 
-                    # Don't bother with any field name starting with "time_" - we already have the message
-                    # timestamp.
-                    if (not field_name.startswith("time_") and
-                        (all_channels > 0 or field_name in config_msg_fields)):
-                        field_info = msg_dict.get(field_name, {})
-                        field_units = msg_units.get(field_name, None)
-                        this_config_msg_field = config_msg_fields.get(field_name, {})
+                    # Find the fields listed in the config file we said we are interested in
+                    config_msg_fields = config.get("selected_messages", {}).get(
+                        msg.get_type(), {}).get("channel", {})
 
-                        if this_config_msg_field is not None:
-                            base_name = this_config_msg_field.get("base_name", field_name)
-                        else:
-                            base_name = field_name
+                    # Get the units for each field (channel) in the message
+                    msg_units = msg.fieldunits_by_name
 
-                        if field_units is not None:
-                            scaling_info = scaling_dict.get(field_units, None)
-                        else:
-                            scaling_info = None
+                    for i in range(num_fields):
+                        field_name = fieldnames[i]
 
-                        if scaling_info is not None:
-                            field_units_suffix = scaling_info.get("units_suffix", "")
-                        else:
-                            field_units_suffix = ""
+                        # Don't bother with any field name starting with "time_" - we already have the message
+                        # timestamp.
+                        if (not field_name.startswith("time_") and
+                            (all_channels > 0 or field_name in config_msg_fields)):
+                            field_info = msg_dict.get(field_name, {})
+                            field_units = msg_units.get(field_name, None)
+                            this_config_msg_field = config_msg_fields.get(field_name, {})
 
-                        if field_units_suffix == "":
-                            df_col_name = f"{msg_group}.{base_name}"
-                        else:
-                            df_col_name = f"{msg_group}.{base_name} ({field_units_suffix})"
+                            if this_config_msg_field is not None:
+                                base_name = this_config_msg_field.get("base_name", field_name)
+                            else:
+                                base_name = field_name
 
-                        if scaling_info is not None:
-                            scale = scaling_info.get("scale", 1)
-                        else:
-                            scale = 1
+                            if field_units is not None:
+                                scaling_info = scaling_dict.get(field_units, None)
+                            else:
+                                scaling_info = None
 
-                        if field_units is not None and isinstance(field_info, (int, float)):
-                            df_col_value = field_info * scale
-                        else:
-                            df_col_value = field_info
+                            if scaling_info is not None:
+                                field_units_suffix = scaling_info.get("units_suffix", "")
+                            else:
+                                field_units_suffix = ""
 
-                        data_list.update({df_col_name: df_col_value})
+                            if field_units_suffix == "":
+                                df_col_name = f"{msg_group}.{base_name}"
+                            else:
+                                df_col_name = f"{msg_group}.{base_name} ({field_units_suffix})"
 
-                if len(data_list) > 1:
-                    data.append(data_list)
+                            if scaling_info is not None:
+                                scale = scaling_info.get("scale", 1)
+                            else:
+                                scale = 1
+
+                            if field_units is not None and isinstance(field_info, (int, float)):
+                                df_col_value = field_info * scale
+                            else:
+                                df_col_value = field_info
+
+                            data_list.update({df_col_name: df_col_value})
+
+                    if len(data_list) > 1:
+                        data.append(data_list)
+
+                else:
+                    # Track the message types present in the file but not imported
+                    if msg.get_type() not in nonimported_message_types:
+                        nonimported_message_types.append(msg.get_type())
+
 
             if not data:
                 return False
@@ -414,6 +436,8 @@ class LogProcessor:
             # Store processed data
             self.current_log.processed_data = df
             self.current_log.channels = list(df.columns)
+            self.imported_message_types = imported_message_types
+            self.nonimported_message_types = nonimported_message_types
             return True
 
         except Exception as e:
@@ -437,6 +461,8 @@ class LogProcessor:
             # Open the tlog file using pymavlink
             mlog = mavutil.mavlink_connection(str(file_path))
             data = []
+            imported_message_types = []
+            nonimported_message_types = []
 
             # Dataflash log (.bin) files can include time series data as well as one-time
             # parameters, etc.
@@ -460,88 +486,101 @@ class LogProcessor:
 
             # Iterate through all messages in the log file
             while True:
-                msg = mlog.recv_match(type=desired_msg_types, blocking=False)
+                # msg = mlog.recv_match(type=desired_msg_types, blocking=False)
+                msg = mlog.recv_match(blocking=False)
+
                 if msg is None:
                     break
 
-                percent_complete = mlog.percent
-                if progress_callback:
-                    progress_callback(percent_complete)
+                if msg.get_type() in desired_msg_types:
 
-                # Get the timestamp for this message
-                msg_datetime = pd.to_datetime(datetime.fromtimestamp(msg._timestamp
-                                                                     ).strftime('%Y-%m-%d %H:%M:%S.%f'))
+                    # Track the message types present in the file but not imported
+                    if msg.get_type() not in imported_message_types:
+                        imported_message_types.append(msg.get_type())
 
-                msg_dict = msg.to_dict()
+                    percent_complete = mlog.percent
+                    if progress_callback:
+                        progress_callback(percent_complete)
 
-                # Get the "group" to which each parameter is assigned, and to be used as the prefix to the DataFrame column.
-                msg_group = config.get("selected_messages", {}).get(
-                    msg.get_type(), {}).get("group", "UNKNOWN")
+                    # Get the timestamp for this message
+                    msg_datetime = pd.to_datetime(datetime.fromtimestamp(msg._timestamp
+                                                                        ).strftime('%Y-%m-%d %H:%M:%S.%f'))
 
-                # Get the timestamp for this message and make it the first entry in the data_list
-                data_list = {'DateTime': msg_datetime}
+                    msg_dict = msg.to_dict()
 
-                # Check the field "all_channels", which indicates that all channels found in the message
-                # should be imported.
-                all_channels = config.get("selected_messages", {}).get(
-                    msg.get_type(), {}).get("all_channels", 0)
+                    # Get the "group" to which each parameter is assigned, and to be used as the prefix to the DataFrame column.
+                    msg_group = config.get("selected_messages", {}).get(
+                        msg.get_type(), {}).get("group", "UNKNOWN")
 
-                fieldnames = msg.get_fieldnames()
-                num_fields = len(fieldnames)
+                    # Get the timestamp for this message and make it the first entry in the data_list
+                    data_list = {'DateTime': msg_datetime}
 
-                # Find the fields listed in the config file we said we are interested in
-                config_msg_fields = config.get("selected_messages", {}).get(
-                    msg.get_type(), {}).get("channel", {})
+                    # Check the field "all_channels", which indicates that all channels found in the message
+                    # should be imported.
+                    all_channels = config.get("selected_messages", {}).get(
+                        msg.get_type(), {}).get("all_channels", 0)
 
-                # Get the units for each field (channel) in the message
-                msg_units = msg.fmt.units
+                    fieldnames = msg.get_fieldnames()
+                    num_fields = len(fieldnames)
 
-                for i in range(num_fields):
-                    field_name = fieldnames[i]
+                    # Find the fields listed in the config file we said we are interested in
+                    config_msg_fields = config.get("selected_messages", {}).get(
+                        msg.get_type(), {}).get("channel", {})
 
-                    # Don't bother with any field name starting with "TimeUS" - we already have the message
-                    # timestamp.
-                    if (not field_name.startswith("TimeUS") and
-                        (all_channels > 0 or field_name in config_msg_fields)):
-                        field_info = msg_dict.get(field_name, {})
-                        field_units = msg_units[i]
-                        this_config_msg_field = config_msg_fields.get(field_name, {})
+                    # Get the units for each field (channel) in the message
+                    msg_units = msg.fmt.units
 
-                        if this_config_msg_field is not None:
-                            base_name = this_config_msg_field.get("base_name", field_name)
-                        else:
-                            base_name = field_name
+                    for i in range(num_fields):
+                        field_name = fieldnames[i]
 
-                        if field_units is not None:
-                            scaling_info = scaling_dict.get(field_units, None)
-                        else:
-                            scaling_info = None
+                        # Don't bother with any field name starting with "TimeUS" - we already have the message
+                        # timestamp.
+                        if (not field_name.startswith("TimeUS") and
+                            (all_channels > 0 or field_name in config_msg_fields)):
+                            field_info = msg_dict.get(field_name, {})
+                            field_units = msg_units[i]
+                            this_config_msg_field = config_msg_fields.get(field_name, {})
 
-                        if scaling_info is not None:
-                            field_units_suffix = scaling_info.get("units_suffix", "")
-                        else:
-                            field_units_suffix = ""
+                            if this_config_msg_field is not None:
+                                base_name = this_config_msg_field.get("base_name", field_name)
+                            else:
+                                base_name = field_name
 
-                        if field_units_suffix == "":
-                            df_col_name = f"{msg_group}.{base_name}"
-                        else:
-                            df_col_name = f"{msg_group}.{base_name} ({field_units_suffix})"
+                            if field_units is not None:
+                                scaling_info = scaling_dict.get(field_units, None)
+                            else:
+                                scaling_info = None
 
-                        if scaling_info is not None:
-                            scale = scaling_info.get("scale", 1)
-                        else:
-                            scale = 1
+                            if scaling_info is not None:
+                                field_units_suffix = scaling_info.get("units_suffix", "")
+                            else:
+                                field_units_suffix = ""
 
-                        if field_units is not None and isinstance(field_info, (int, float)):
-                            df_col_value = field_info * scale
-                        else:
-                            df_col_value = field_info
+                            if field_units_suffix == "":
+                                df_col_name = f"{msg_group}.{base_name}"
+                            else:
+                                df_col_name = f"{msg_group}.{base_name} ({field_units_suffix})"
 
-                        data_list.update({df_col_name: df_col_value})
+                            if scaling_info is not None:
+                                scale = scaling_info.get("scale", 1)
+                            else:
+                                scale = 1
+
+                            if field_units is not None and isinstance(field_info, (int, float)):
+                                df_col_value = field_info * scale
+                            else:
+                                df_col_value = field_info
+
+                            data_list.update({df_col_name: df_col_value})
 
 
-                if len(data_list) > 1:
-                    data.append(data_list)
+                    if len(data_list) > 1:
+                        data.append(data_list)
+
+                else:
+                    # Track the message types present in the file but not imported
+                    if msg.get_type() not in nonimported_message_types:
+                        nonimported_message_types.append(msg.get_type())
 
             if not data:
                 return False
@@ -595,6 +634,9 @@ class LogProcessor:
             # Store processed data
             self.current_log.processed_data = df
             self.current_log.channels = list(df.columns)
+            self.imported_message_types = imported_message_types
+            self.nonimported_message_types = nonimported_message_types
+
             return True
 
         except Exception as e:
@@ -616,7 +658,9 @@ class LogProcessor:
             'num_samples': len(df),
             'num_channels': len(df.columns),
             'channels': list(df.columns),
-            'file_size': self.current_log.file_path.stat().st_size if self.current_log.file_path else 0
+            'file_size': self.current_log.file_path.stat().st_size if self.current_log.file_path else 0,
+            'imported_messages': self.imported_message_types,
+            'non_imported_messages': self.nonimported_message_types
         }
 
         # Try to find time column and calculate duration/sample rate

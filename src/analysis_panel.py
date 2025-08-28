@@ -59,6 +59,9 @@ class AnalysisPanel(QWidget):
         self.current_log = None
         self.analysis_results = {}
 
+        # File Information tab widgets
+        self.file_info_text = QTextEdit()
+        self.file_info_text.setReadOnly(True)
         self.file_name_label = QLabel()
         self.duration_label = QLabel()
         self.samples_label = QLabel()
@@ -98,8 +101,18 @@ class AnalysisPanel(QWidget):
         # Channel analysis tab
         self._create_channel_analysis_tab()
 
+        # File Information tab
+        self._create_file_info_tab()
+
         # Control buttons
         self._create_control_buttons(layout)
+
+    def _create_file_info_tab(self) -> None:
+        """Create the File Information tab."""
+        file_info_widget = QWidget()
+        layout = QVBoxLayout(file_info_widget)
+        layout.addWidget(self.file_info_text)
+        self.tab_widget.addTab(file_info_widget, "File Information")
 
     def _create_statistics_tab(self) -> None:
         """Create the general statistics tab."""
@@ -252,6 +265,9 @@ class AnalysisPanel(QWidget):
             # Update channel selector
             self._update_channel_selector()
 
+            # Update file information tab
+            self._update_file_info_tab()
+
             # Emit signal
             self.analysis_updated.emit(self.analysis_results)
 
@@ -259,6 +275,30 @@ class AnalysisPanel(QWidget):
             print(f"Analysis Panel - Error: {str(e)}")
             traceback.print_exc()
             self._show_error(f"Analysis failed: {str(e)}")
+
+    def _update_file_info_tab(self) -> None:
+        """Update the File Information tab with details about the loaded file."""
+        if self.current_log is None:
+            self.file_info_text.setText("No file loaded.")
+            return
+
+        info_lines = []
+        # Try to get file path, size, and metadata
+        file_path = getattr(self.current_log, 'file_path', None)
+        if file_path:
+            info_lines.append(f"File path: {file_path}")
+            try:
+                import os
+                size = os.path.getsize(file_path)
+                info_lines.append(f"File size: {size} bytes")
+            except Exception:
+                pass
+        metadata = getattr(self.current_log, 'metadata', {})
+        for key, value in metadata.items():
+            info_lines.append(f"{key}: {value}\n")
+
+        self.file_info_text.setText("\n".join(info_lines) if info_lines else "No file information available.")
+
 
     def _update_general_stats(self) -> None:
         """Update general statistics."""
