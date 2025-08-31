@@ -634,8 +634,8 @@ class LogProcessor:
             # Store processed data
             self.current_log.processed_data = df
             self.current_log.channels = list(df.columns)
-            self.imported_message_types = imported_message_types
-            self.nonimported_message_types = nonimported_message_types
+            self.imported_message_types = sorted(imported_message_types)
+            self.nonimported_message_types = sorted(nonimported_message_types)
 
             return True
 

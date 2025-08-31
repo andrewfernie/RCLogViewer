@@ -413,7 +413,9 @@
     },
     "bin_file": {
         "channel_groups": [
+            "ARSP",
             "ATT",
+            "BARO",
             "BAT",
             "GPS",
             "RCIn",
@@ -526,8 +528,16 @@
             }
         },
         "selected_messages": {
+            "ARSP": {
+                "group": "ARSP",
+                "all_channels": 1
+            },
             "ATT": {
                 "group": "ATT",
+                "all_channels": 1
+            },
+            "BARO": {
+                "group": "BARO",
                 "all_channels": 1
             },
             "BAT": {
