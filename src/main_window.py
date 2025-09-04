@@ -15,7 +15,7 @@ import subprocess
 from typing import List
 
 from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-                               QSplitter, QTabWidget, QSizePolicy,
+                               QSplitter, QTabWidget, QSizePolicy, QInputDialog,
                                QFileDialog, QMessageBox, QProgressBar, QLabel,
                                QScrollArea, QApplication)
 
@@ -23,6 +23,7 @@ from PySide6.QtCore import Qt, QTimer, QThread
 from PySide6.QtGui import QAction, QCloseEvent, QIcon
 
 from file_panel import FilePanel
+from folder_panel import FolderPanel
 from channel_panel import ChannelPanel
 from dataseries_plot_panel import DataSeriesPlotPanel
 from gps_plot_panel import GPSXYPlotPanel
@@ -99,6 +100,11 @@ class MainWindow(QMainWindow):
         self.file_panel = FilePanel()
         self.file_panel.setFixedHeight(300)
         left_layout.addWidget(self.file_panel)
+
+        # Folder panel (recent folders)
+        self.folder_panel = FolderPanel()
+        self.folder_panel.setFixedHeight(200)
+        left_layout.addWidget(self.folder_panel)
 
         # Channel panel
         self.channel_panel = ChannelPanel()
@@ -261,9 +267,35 @@ class MainWindow(QMainWindow):
         # File panel signals
         self.file_panel.file_selected.connect(self._load_file)
 
+        # Folder panel signals
+        self.folder_panel.folder_selected.connect(self._show_folder_log_files)
+
         # Channel panel signals
         self.channel_panel.channels_selection_changed.connect(
             self._update_plot_selection)
+
+    def _show_folder_log_files(self, folder_path: str):
+        """Show a dialog listing log files in the selected folder and allow user to open one."""
+
+        # List log files in the folder
+        log_files = [f for f in os.listdir(folder_path)
+                    if os.path.isfile(os.path.join(folder_path, f)) and f.lower().endswith(('.csv', '.tlog', '.bin'))]
+        if not log_files:
+            QMessageBox.information(self, "No Log Files", "No log files found in this folder.")
+            return
+
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Open Log File",
+            folder_path,
+            "Log Files (*.csv *.tlog *.bin);;CSV Files (*.csv);;TLog Files (*.tlog);;bin Files (*.bin);;All Files (*)"
+        )
+
+        if file_path:
+            self._load_file(file_path)
+            # Add to Recent Files list
+            self.file_panel._set_current_file(file_path)
+
 
     def _update_ui_state(self) -> None:
         """
@@ -484,6 +516,11 @@ class MainWindow(QMainWindow):
             if success:
                 self.status_label.setText("File loaded successfully")
                 self.filetype = file_path.split('.')[-1].lower()
+
+                # Add folder to FolderPanel
+                import os
+                folder_path = os.path.dirname(file_path)
+                self.folder_panel.add_folder(folder_path)
 
                 if self.filetype == 'csv':
                     self.filetype_config = self.config["csv_file"]
