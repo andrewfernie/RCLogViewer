@@ -140,9 +140,19 @@ class LogProcessor:
             # Split GPS column if present
             if 'GPS' in df.columns:
                 gps_split = df['GPS'].str.split(' ', expand=True)
+
+                # For each row in gps_split, if either gps_split[0] or gps_split[1] is equal to '0.000000',
+                # set both to NaN. This catches some cases of bad data, and it is unlikely that the
+                # GPS receiver would report a valid latitude or longitude with a value of exactly '0.000000'
+
+                gps_valid = ~((gps_split[0] == '0.000000') | (gps_split[1] == '0.000000'))
+                gps_split = gps_split.where(gps_valid, np.nan)
+
                 df['GPS.Latitude'] = gps_split[0]
                 df['GPS.Longitude'] = gps_split[1]
                 df = df.drop(columns=['GPS'])
+
+
 
             # Compute X/Y excursions in meters from center GPS point if GPS columns exist
             if 'GPS.Longitude' in df.columns and 'GPS.Latitude' in df.columns:
