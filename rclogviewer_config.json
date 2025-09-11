@@ -13,8 +13,8 @@
             "6P": "SWITCH.6P",
             "Ail": "CONTROL.Ail",
             "Aileron": "CONTROL.Aileron",
-            "Alt(m)": "VATIO.Alt (m)",
-            "Altitude(m)": "VATIO.Altitude (m)",
+            "Alt(m)": "VARIO.Alt (m)",
+            "Altitude(m)": "VARIO.Altitude (m)",
             "Celm(V)": "POWER.Celm (V)",
             "Cels(V)": "POWER.Cels (V)",
             "Consumption(mAh)": "POWER.Consumption (mAh)",
@@ -71,8 +71,8 @@
             "Time": "TIME,Time",
             "TxBat(V)": "RADIO.TxBat (V)",
             "VFAS(V)": "POWER.VFAS (V)",
-            "VSpd(m/s)": "VATIO.VSpd (m/s)",
-            "VSpeed(m/s)": "VATIO.VSpeed (m/s)"
+            "VSpd(m/s)": "VARIO.VSpd (m/s)",
+            "VSpeed(m/s)": "VARIO.VSpeed (m/s)"
         }
     },
     "tlog_file": {
@@ -418,8 +418,10 @@
             "BARO",
             "BAT",
             "GPS",
+            "ORGN",
             "RCIn",
-            "RCOut"
+            "RCOut",
+            "STAT"
         ],
         "scaling": {
             "s": {
@@ -548,6 +550,10 @@
                 "group": "GPS",
                 "all_channels": 1
             },
+            "ORGN": {
+                "group": "ORGN",
+                "all_channels": 1
+            },
             "RCIN": {
                 "group": "RCIn",
                 "channel": {
@@ -641,6 +647,10 @@
                         "base_name": "Ch_14"
                     }
                 }
+            },
+            "STAT": {
+                "group": "STAT",
+                "all_channels": 1
             }
         }
     }

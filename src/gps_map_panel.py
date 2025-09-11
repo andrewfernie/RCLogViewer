@@ -323,12 +323,12 @@ class GPS2DMap(QWidget):
 
             # Display markers for the start and finish of the full trajectory
             folium.Marker(location=self.coords[0], tooltip="Full Trajectory Start",
-                          icon=folium.Icon(color="green")).add_to(self.m)
+                          icon=folium.Icon(color="lightgreen")).add_to(self.m)
 
             if len(self.coords) > 1:
                 folium.Marker(
                     location=self.coords[-1], tooltip="Full Trajectory End",
-                    icon=folium.Icon(color="red")).add_to(self.m)
+                    icon=folium.Icon(color="lightred")).add_to(self.m)
 
             # Plot the filtered trajectory using the mask on the original data with
             # a different color and a thicker line
@@ -340,12 +340,12 @@ class GPS2DMap(QWidget):
 
                 # Display markers for the start and finish of the filtered trajectory
                 folium.Marker(location=filtered_coords[0], tooltip="Filtered Trajectory Start",
-                              icon=folium.Icon(color="green")).add_to(self.m)
+                              icon=folium.Icon(color="darkgreen")).add_to(self.m)
 
                 if len(filtered_coords) > 1:
                     folium.Marker(
                         location=filtered_coords[-1], tooltip="Filtered Trajectory End",
-                        icon=folium.Icon(color="red")).add_to(self.m)
+                        icon=folium.Icon(color="darkred")).add_to(self.m)
 
         # Render and display
         html = self.m.get_root().render()

@@ -169,6 +169,7 @@ class LogProcessor:
                 df['GPS.Y (m)'] = y
                 df = df.drop(
                     columns=['GPS.LatitudeFloat', 'GPS.LongitudeFloat'])
+
                 import_status += "Contains GPS data.\n"
             else:
                 import_status += "No GPS data found.\n"
@@ -632,6 +633,21 @@ class LogProcessor:
                             df['GPS.LatitudeFloat'].values)
                 df['GPS.X (m)'] = x
                 df['GPS.Y (m)'] = y
+
+                # "ORGN.Lat" and "ORGN.Lng" exist, use their values as home position
+                if 'ORGN.Lat (deg)' in df.columns and 'ORGN.Lng (deg)' in df.columns:
+
+                    # Compute distance from home in meters if GPS.Lat and GPS.Lon exist
+                    if 'GPS.LatitudeFloat' in df.columns and 'GPS.LongitudeFloat' in df.columns:
+                        home_lat = df['ORGN.Lat (deg)'].mean()
+                        home_lon = df['ORGN.Lng (deg)'].mean()
+                        proj_home = Proj(proj='aeqd', lat_0=home_lat,
+                                        lon_0=home_lon, datum='WGS84')
+                        xh, yh = proj_home(df['GPS.LongitudeFloat'].values,
+                                           df['GPS.LatitudeFloat'].values)
+                        df['CUSTOM.DistFromHome (m)'] = np.sqrt(xh**2 + yh**2)
+
+
                 df = df.drop(
                     columns=['GPS.LatitudeFloat', 'GPS.LongitudeFloat'])
                 import_status += "Contains GPS data.\n"
