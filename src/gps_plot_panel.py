@@ -361,8 +361,17 @@ class GPSXYPlotPanel(QWidget):
             y_range = self.gps_y_data.max() - self.gps_y_data.min()
             padding = max(x_range, y_range) * 0.1
 
-            self.ax.set_xlim(self.gps_x_data.min() - padding, self.gps_x_data.max() + padding)
-            self.ax.set_ylim(self.gps_y_data.min() - padding, self.gps_y_data.max() + padding)
+            x_min, x_max = self.gps_x_data.min(), self.gps_x_data.max()
+            y_min, y_max = self.gps_y_data.min(), self.gps_y_data.max()
+            # Avoid identical limits
+            if x_min == x_max:
+                x_min -= 1
+                x_max += 1
+            if y_min == y_max:
+                y_min -= 1
+                y_max += 1
+            self.ax.set_xlim(x_min - padding, x_max + padding)
+            self.ax.set_ylim(y_min - padding, y_max + padding)
             self.canvas.draw()
         else:
             self.ax.autoscale()

@@ -23,6 +23,33 @@ from PySide6.QtCore import QSettings
 from PySide6.QtWebEngineWidgets import QWebEngineView
 
 import folium
+from folium.elements import MacroElement
+from jinja2 import Template
+
+class ClickHandler(MacroElement):
+    """
+    Folium MacroElement that injects JavaScript to handle map click events.
+    When the map is clicked, the latitude and longitude of the clicked point
+    are sent to the browser's document title in the format 'set_home:lat,lon'.
+    This enables communication of click coordinates from the Folium map to the
+    Python backend via the QWebEngineView event filter.
+    """
+    _template = Template(u"""
+        {% macro script(this, kwargs) %}
+            function onMapClick(e) {
+                var lat = e.latlng.lat;
+                var lng = e.latlng.lng;
+                // alert("Clicked at: " + lat + ", " + lng);
+                document.title = 'set_home:' + lat + ',' + lng;
+            }
+            {{this._parent.get_name()}}.on('click', onMapClick);
+        {% endmacro %}
+    """)
+
+    def __init__(self):
+        super(ClickHandler, self).__init__()
+        self._name = 'ClickHandler'
+
 class GPS2DMap(QWidget):
     """
     QWidget-based panel for displaying GPS trajectory data on a 2D map using Folium.
@@ -55,18 +82,33 @@ class GPS2DMap(QWidget):
         self.coords: List[Tuple[float, float]] = []
         self.m: Optional[folium.Map] = None
 
+        # Home position state
+        self.home_position = None
+        self._set_home_mode = False
+
         # UI components (initialized in _setup_ui)
         self.tiles_combo: QComboBox
         self.trajectory_color_combo: QComboBox
         self.filtered_trajectory_color_combo: QComboBox
         self.line_width_combo: QComboBox
         self.reset_view_button: QPushButton
+    # self.set_home_button will be initialized in _setup_ui as a QPushButton instance
         self.web_view: QWebEngineView
 
         # Initialize QSettings for persistence
         self.settings: QSettings = QSettings('RCLogViewer', 'GPS2DMapPanel')
 
         self._setup_ui()
+
+        self.web_view.installEventFilter(self)
+
+    def set_home_position(self, lat, lng):
+        """
+        Set the home position and update the map.
+        """
+        self.home_position = [lat, lng]
+        self._set_home_mode = False
+        self._update_display()
 
     def _setup_ui(self) -> None:
         """
@@ -77,6 +119,9 @@ class GPS2DMap(QWidget):
         # Web view that hosts the Folium map
         self.web_view = QWebEngineView()
         self.web_view.setZoomFactor(self._zoom_factor)
+        # Connect to titleChanged signal to capture clicks
+        self.web_view.titleChanged.connect(self.on_title_changed)
+
         layout.addWidget(self.web_view)
 
         # Controls row: imagery selector + (optional) zoom buttons
@@ -84,12 +129,10 @@ class GPS2DMap(QWidget):
         controls_layout.addWidget(QLabel("Imagery:"))
 
         self.tiles_combo = QComboBox()
-        self.tiles_combo.addItems(
-            [
-                "OpenStreetMap",
-                "Esri Satellite",
-            ]
-        )
+        self.tiles_combo.addItems([
+            "OpenStreetMap",
+            "Esri Satellite",
+        ])
         self.tiles_combo.setCurrentText("OpenStreetMap")
         self.tiles_combo.currentTextChanged.connect(self._on_tiles_changed)
         controls_layout.addWidget(self.tiles_combo)
@@ -102,7 +145,8 @@ class GPS2DMap(QWidget):
             "Blue", "Red", "Green", "Orange", "Purple", "Brown", "Pink", "Gray"
         ])
         self.trajectory_color_combo.setCurrentText("Blue")
-        self.trajectory_color_combo.currentTextChanged.connect(self._on_color_changed)
+        self.trajectory_color_combo.currentTextChanged.connect(
+            self._on_color_changed)
         controls_layout.addWidget(self.trajectory_color_combo)
 
         # Filtered Trajectory Color selector
@@ -113,7 +157,8 @@ class GPS2DMap(QWidget):
             "Orange", "Red", "Green", "Blue", "Purple", "Brown", "Pink", "Gray"
         ])
         self.filtered_trajectory_color_combo.setCurrentText("Orange")
-        self.filtered_trajectory_color_combo.currentTextChanged.connect(self._on_color_changed)
+        self.filtered_trajectory_color_combo.currentTextChanged.connect(
+            self._on_color_changed)
         controls_layout.addWidget(self.filtered_trajectory_color_combo)
 
         # Line Width selector
@@ -122,20 +167,47 @@ class GPS2DMap(QWidget):
         self.line_width_combo = QComboBox()
         self.line_width_combo.addItems(["1", "2", "3", "4", "5"])
         self.line_width_combo.setCurrentText("2")
-        self.line_width_combo.currentTextChanged.connect(self._on_line_width_changed)
+        self.line_width_combo.currentTextChanged.connect(
+            self._on_line_width_changed)
         controls_layout.addWidget(self.line_width_combo)
 
         # Reset View button
         self.reset_view_button = QPushButton("Reset View")
-        self.reset_view_button.setToolTip("Reset zoom and center view on GPS track")
+        self.reset_view_button.setToolTip(
+            "Reset zoom and center view on GPS track")
         self.reset_view_button.clicked.connect(self._on_reset_view)
         self.reset_view_button.setEnabled(False)  # Disabled until GPS data is loaded
         controls_layout.addWidget(self.reset_view_button)
+
+        # Set Home Position button
+        self.set_home_button = QPushButton("Set Home Position")
+        self.set_home_button.setToolTip(
+            "Pick a point on the map to set Home position")
+        self.set_home_button.clicked.connect(self._on_set_home_clicked)
+        self.set_home_button.setEnabled(False)
+        controls_layout.addWidget(self.set_home_button)
 
         controls_layout.addStretch()
         layout.addLayout(controls_layout)
 
         self._load_color_settings()
+
+    def _on_set_home_clicked(self):
+        """
+        Enable set home mode to allow user to pick a point on the map.
+        """
+        self._set_home_mode = True
+        print("Click on the map to set the Home position.")
+
+    def on_title_changed(self, title):
+        if self._set_home_mode:
+            if title.startswith("set_home:"):
+                coords = title.split(":")[1]
+                lat, lng = map(float, coords.split(","))
+
+                self.set_home_position(lat, lng)
+                self.home_position = (lat, lng)
+                print(f"Home position set to: {self.home_position}")
 
     def _get_trajectory_color(self, color_name: str) -> str:
         """
@@ -173,29 +245,36 @@ class GPS2DMap(QWidget):
         """
         Save color and style selections to QSettings for persistence.
         """
-        self.settings.setValue('trajectory_color', self.trajectory_color_combo.currentText())
-        self.settings.setValue('filtered_trajectory_color',
-                               self.filtered_trajectory_color_combo.currentText())
-        self.settings.setValue('line_width', self.line_width_combo.currentText())
+        if self.trajectory_color_combo:
+            self.settings.setValue(
+                'trajectory_color', self.trajectory_color_combo.currentText())
+        if self.filtered_trajectory_color_combo:
+            self.settings.setValue(
+                'filtered_trajectory_color', self.filtered_trajectory_color_combo.currentText())
+        if self.line_width_combo:
+            self.settings.setValue(
+                'line_width', self.line_width_combo.currentText())
 
     def _load_color_settings(self) -> None:
         """
         Load color and style selections from QSettings for persistence.
         """
         saved_trajectory_color = self.settings.value('trajectory_color')
-        if saved_trajectory_color:
-            index = self.trajectory_color_combo.findText(saved_trajectory_color)
+        if saved_trajectory_color and self.trajectory_color_combo:
+            index = self.trajectory_color_combo.findText(
+                saved_trajectory_color)
             if index >= 0:
                 self.trajectory_color_combo.setCurrentIndex(index)
 
         saved_filtered_color = self.settings.value('filtered_trajectory_color')
-        if saved_filtered_color:
-            index = self.filtered_trajectory_color_combo.findText(saved_filtered_color)
+        if saved_filtered_color and self.filtered_trajectory_color_combo:
+            index = self.filtered_trajectory_color_combo.findText(
+                saved_filtered_color)
             if index >= 0:
                 self.filtered_trajectory_color_combo.setCurrentIndex(index)
 
         saved_line_width = self.settings.value('line_width')
-        if saved_line_width:
+        if saved_line_width and self.line_width_combo:
             index = self.line_width_combo.findText(saved_line_width)
             if index >= 0:
                 self.line_width_combo.setCurrentIndex(index)
@@ -233,7 +312,7 @@ class GPS2DMap(QWidget):
             if time_data is not None else np.array([])
 
         valid_mask_nan = ~(np.isnan(self.gps_lat_data) | np.isnan(self.gps_lon_data) |
-                       np.isnan(self.gps_time_data))
+                           np.isnan(self.gps_time_data))
 
         self.gps_lat_data = self.gps_lat_data[valid_mask_nan]
         self.gps_lon_data = self.gps_lon_data[valid_mask_nan]
@@ -260,7 +339,7 @@ class GPS2DMap(QWidget):
                 (self.gps_lon_data.max() + self.gps_lon_data.min()) / 2
             ]
 
-        #create a list of coordinates
+        # create a list of coordinates
         self.coords = list(zip(self.gps_lat_data, self.gps_lon_data))
 
         # Clear previous plot
@@ -272,8 +351,8 @@ class GPS2DMap(QWidget):
         # Fit bounds using the extents of the data points to be plotted
         sw_corner = [self.gps_lat_data.min(), self.gps_lon_data.min()]
         ne_corner = [self.gps_lat_data.max(), self.gps_lon_data.max()]
-        self.m.fit_bounds([sw_corner, ne_corner])
-
+        if self.m is not None:
+            self.m.fit_bounds([sw_corner, ne_corner])
 
     def _update_display(self) -> None:
         """
@@ -285,9 +364,12 @@ class GPS2DMap(QWidget):
         # Build Folium map with selected tiles
         self.m = folium.Map(location=self.center, zoom_start=18, control_scale=True,
                             zoom_control=True, tiles=None)
+
+        ClickHandler().add_to(self.m)
+
+
         tiles_name = self.tiles_combo.currentText()
         self._add_tiles_layer(self.m, tiles_name)
-
 
         # Get colors for the trajectory and filtered trajectory
         filtered_color = self._get_filtered_trajectory_color(
@@ -308,7 +390,7 @@ class GPS2DMap(QWidget):
             folium.PolyLine(self.coords, color=trajectory_color, weight=line_width, opacity=1.0
                             ).add_to(self.m)
 
-             # Display markers for the start and finish of the full trajectory
+            # Display markers for the start and finish of the full trajectory
             folium.Marker(location=self.coords[0], tooltip="Trajectory Start",
                           icon=folium.Icon(color="green")).add_to(self.m)
 
@@ -333,7 +415,7 @@ class GPS2DMap(QWidget):
             # Plot the filtered trajectory using the mask on the original data with
             # a different color and a thicker line
             filtered_coords = list(zip(self.gps_lat_data[self.time_mask],
-                                     self.gps_lon_data[self.time_mask]))
+                                       self.gps_lon_data[self.time_mask]))
             if filtered_coords:
                 folium.PolyLine(filtered_coords, color=filtered_color, weight=line_width,
                                 opacity=0.8).add_to(self.m)
@@ -347,12 +429,30 @@ class GPS2DMap(QWidget):
                         location=filtered_coords[-1], tooltip="Filtered Trajectory End",
                         icon=folium.Icon(color="darkred")).add_to(self.m)
 
+        if self.home_position is not None:
+            try:
+                folium.Marker(location=self.home_position, tooltip="Home Position",
+                                    icon=folium.Icon(color="blue", icon="home", prefix="fa"))\
+                        .add_to(self.m)
+            except Exception:
+                pass
+
+
         # Render and display
+        if self.m is None:
+            return
+
         html = self.m.get_root().render()
+
         self.web_view.setHtml(html)
 
         # Enable reset view button now that we have GPS data
-        self.reset_view_button.setEnabled(True)
+        if self.reset_view_button:
+            self.reset_view_button.setEnabled(True)
+
+        if self.set_home_button:
+            self.set_home_button.setEnabled(True)
+
 
     # --- Internal helpers ---
     def _on_tiles_changed(self, _: str) -> None:
@@ -395,8 +495,11 @@ class GPS2DMap(QWidget):
             self.web_view.setHtml("")
         except Exception:
             pass
+        if self.reset_view_button:
+            self.reset_view_button.setEnabled(False)
+        if self.set_home_button:
+            self.set_home_button.setEnabled(False)
 
-        self.reset_view_button.setEnabled(False)
 
     def cleanup(self) -> None:
         """
@@ -450,10 +553,11 @@ class GPS2DMap(QWidget):
         # If we have time data, filter and highlight the relevant GPS trajectory segment
         if (self.gps_time_data is not None and
             self.gps_lat_data is not None and
-            self.gps_lon_data is not None ):
+                self.gps_lon_data is not None):
 
             # Find indices within the time range
-            self.time_mask = (self.gps_time_data >= x_min) & (self.gps_time_data <= x_max)
+            self.time_mask = (self.gps_time_data >= x_min) & (
+                self.gps_time_data <= x_max)
 
             if np.any(self.time_mask):
                 # Clear and replot with highlighting

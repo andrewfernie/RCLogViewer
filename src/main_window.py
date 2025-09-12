@@ -390,8 +390,10 @@ class MainWindow(QMainWindow):
                 x_data = []
                 y_data = []
                 time_data = []
+
                 for i in range(len(x_data_full)):
-                    if i == 0 or (x_data_full[i] != x_data_full[i - 1] or y_data_full[i] != y_data_full[i - 1]):
+                    if i == 0 or (x_data_full[i] != x_data_full[i - 1] or
+                                  y_data_full[i] != y_data_full[i - 1]):
                         x_data.append(x_data_full[i])
                         y_data.append(y_data_full[i])
                         time_data.append(time_data_full[i])
@@ -415,6 +417,7 @@ class MainWindow(QMainWindow):
                 latitudes = []
                 longitudes = []
                 time_data = []
+
                 for i in range(len(latitudes_full)):
                     if i == 0 or (latitudes_full[i] != latitudes_full[i - 1] or
                                   longitudes_full[i] != longitudes_full[i - 1]):
