@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QPushButton,
 )
-from PySide6.QtCore import QSettings
+from PySide6.QtCore import QSettings, Signal
 from PySide6.QtWebEngineWidgets import QWebEngineView
 
 import folium
@@ -63,6 +63,9 @@ class GPS2DMap(QWidget):
         - Persistent color and style settings using QSettings.
         - Map rendering with Folium and display in Qt WebEngine.
     """
+
+    # Signal emitted when home position changes (lat, lon)
+    homePositionChanged = Signal(float, float)
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         """
@@ -108,6 +111,10 @@ class GPS2DMap(QWidget):
         """
         self.home_position = [lat, lng]
         self._set_home_mode = False
+        try:
+            self.homePositionChanged.emit(float(lat), float(lng))
+        except Exception:
+            pass
         self._update_display()
 
     def _setup_ui(self) -> None:

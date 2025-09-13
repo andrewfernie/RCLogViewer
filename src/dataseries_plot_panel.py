@@ -36,7 +36,6 @@ class DataSeriesPlotPanel(QWidget):
         title (str): Title for the plot panel.
         parent (QWidget, optional): Parent widget.
     """
-
     # Signal emitted when x-axis limits change (start_time, end_time)
     x_limits_changed = Signal(float, float)
 
@@ -182,6 +181,18 @@ class DataSeriesPlotPanel(QWidget):
         # Initialize QSettings for persistence
         self.settings = QSettings('RCLogViewer', 'DataSeriesPlotPanel')
         self._load_color_settings()
+
+
+    def set_home_position(self, lat, lng):
+        """
+        Slot to receive home position updates from GPS2DMap.
+        Args:
+            lat (float): Latitude of new home position.
+            lng (float): Longitude of new home position.
+        """
+        # You can add logic here to update the plot or store the home position
+        print(f"DataSeriesPlotPanel received new home position: lat={lat}, lng={lng}")
+
 
     def _set_plot_title(self):
         """Set the plot title."""

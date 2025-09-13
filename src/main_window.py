@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                                QFileDialog, QMessageBox, QProgressBar, QLabel,
                                QScrollArea, QApplication)
 
-from PySide6.QtCore import Qt, QTimer, QThread
+from PySide6.QtCore import Qt, QTimer, QThread, Signal
 from PySide6.QtGui import QAction, QCloseEvent, QIcon
 
 from file_panel import FilePanel
@@ -41,6 +41,9 @@ class MainWindow(QMainWindow):
     This class manages the layout, menu actions, status bar, and all major panels for log file
     analysis. It coordinates file loading, data export, plotting, and GPS visualization features.
     """
+
+    # Re-broadcast home position changes (lat, lon) to interested panels
+    homePositionChanged = Signal(float, float)
 
     def __init__(self):
         """
@@ -71,11 +74,14 @@ class MainWindow(QMainWindow):
         self._setup_status_bar()
         self._connect_signals()
 
+        # Connect home position distribution after UI is built
+        if hasattr(self, 'gps_2d_map_panel') and hasattr(self.gps_2d_map_panel, 'homePositionChanged'):
+            self.gps_2d_map_panel.homePositionChanged.connect(self._on_home_position_changed)
+            # Forward via MainWindow signal instead of direct map->panel coupling
+            self.homePositionChanged.connect(self.plot_panel.set_home_position)
+
         # Update UI state
         self._update_ui_state()
-
-        # Restore last opened file
-        # self._restore_last_file()
 
     def _setup_ui(self) -> None:
         """
@@ -159,6 +165,18 @@ class MainWindow(QMainWindow):
 
         # Set splitter proportions
         main_splitter.setSizes([350, 1050])
+
+    def _on_home_position_changed(self, lat: float, lon: float):
+        """Receive propagated home position updates from GPS map and store/display."""
+        self.home_position = (lat, lon)
+        # Re-broadcast
+        try:
+            self.homePositionChanged.emit(lat, lon)
+        except Exception:
+            pass
+        if hasattr(self, 'status_label'):
+            self.status_label.setText(f"Home: {lat:.5f}, {lon:.5f}")
+            QTimer.singleShot(4000, lambda: self.status_label.setText("Ready"))
 
     def _setup_menu(self) -> None:
         """

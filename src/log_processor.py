@@ -9,7 +9,7 @@ in CSV format, metadata extraction, channel access, and summary statistics.
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 import pandas as pd
 import numpy as np
 from pyproj import Proj
@@ -32,6 +32,7 @@ class LogData:
         self.duration: float = 0.0
         self.metadata: Dict[str, Any] = {}
         self.file_path: Optional[Path] = None
+        self.log_file_type: Optional[str] = None
 
 
 class LogProcessor:
@@ -134,8 +135,13 @@ class LogProcessor:
             if df.empty:
                 return False
 
+            self.current_log.log_file_type = "csv"
+
             # Remove empty columns
             df = df.dropna(axis=1, how='all')
+
+            lat_col = None
+            lon_col = None
 
             # Split GPS column if present
             if 'GPS' in df.columns:
@@ -147,30 +153,28 @@ class LogProcessor:
 
                 gps_valid = ~((gps_split[0] == '0.000000') | (gps_split[1] == '0.000000'))
                 gps_split = gps_split.where(gps_valid, np.nan)
+                            # Find a column in df that starts with 'GPS.Latitude'
+                lat_col = 'GPS.Latitude'
+                lon_col = 'GPS.Longitude'
 
-                df['GPS.Latitude'] = gps_split[0]
-                df['GPS.Longitude'] = gps_split[1]
+                df[lat_col] = gps_split[0]
+                df[lon_col] = gps_split[1]
                 df = df.drop(columns=['GPS'])
 
-
-
-            # Compute X/Y excursions in meters from center GPS point if GPS columns exist
-            if 'GPS.Longitude' in df.columns and 'GPS.Latitude' in df.columns:
-                # Convert to float in case they are strings
-                df['GPS.LongitudeFloat'] = df['GPS.Longitude'].astype(float)
-                df['GPS.LatitudeFloat'] = df['GPS.Latitude'].astype(float)
-                lon0 = df['GPS.LongitudeFloat'].mean()
-                lat0 = df['GPS.LatitudeFloat'].mean()
-                # Use pyproj for accurate projection (WGS84)
-                proj = Proj(proj='aeqd', lat_0=lat0, lon_0=lon0, datum='WGS84')
-                x, y = proj(df['GPS.LongitudeFloat'].values,
-                            df['GPS.LatitudeFloat'].values)
+            if lon_col is not None and lat_col is not None:
+                import_status += "Contains GPS data.\n"
+                x, y = self._compute_xy_excursions(df, lat_col, lon_col)
                 df['GPS.X (m)'] = x
                 df['GPS.Y (m)'] = y
-                df = df.drop(
-                    columns=['GPS.LatitudeFloat', 'GPS.LongitudeFloat'])
 
-                import_status += "Contains GPS data.\n"
+                # Use _find_first_valid_lat_lon to find the first valid GPS coordinates and save them as home position
+                home_lat, home_lon = self._find_home_position(df, lat_col, lon_col)
+                if home_lat is not None and home_lon is not None:
+                    df['CUSTOM.DistFromHome (m)'] = self._compute_distance_from_target(
+                        df, lat_col, lon_col, home_lat, home_lon)
+                    df['CUSTOM.BearingToHome (deg)'] = self._compute_bearing_to_target(
+                        df, lat_col, lon_col, home_lat, home_lon)
+
             else:
                 import_status += "No GPS data found.\n"
 
@@ -239,8 +243,7 @@ class LogProcessor:
 
             # Compute Power(W) if VFAS(V) and Current(A) are present
             if 'POWER.VFAS (V)' in df.columns and 'POWER.Current (A)' in df.columns:
-                df['POWER.Power (W)'] = df['POWER.VFAS (V)'] * \
-                    df['POWER.Current (A)']
+                df['POWER.Power (W)'] = self._compute_power(df, 'POWER.VFAS (V)', 'POWER.Current (A)')
                 import_status += "Generated 'Power (W)' data.\n"
 
             # Sort columns alphabetically
@@ -258,6 +261,7 @@ class LogProcessor:
 
         except Exception as e:
             print(f"Error parsing CSV file: {e}")
+            self.current_log.log_file_type = None
             return False
 
     def _parse_tlog_file(self, file_path: Path, config: Dict[str, Any], progress_callback=None) -> bool:
@@ -393,7 +397,10 @@ class LogProcessor:
 
 
             if not data:
+                self.current_log.log_file_type = None
                 return False
+
+            self.current_log.log_file_type = "tlog"
 
             # Convert to DataFrame
             df = pd.DataFrame(data)
@@ -413,25 +420,25 @@ class LogProcessor:
             # Compute X/Y excursions in meters from center GPS point if GPS columns exist\
             # If there is a column in df that starts with 'GPS.Longitude'
 
-            # Find a column in df that starts with 'GPS.Latitude'
-            lat_col = df.columns[df.columns.str.startswith('GPS.Latitude')]
-            lon_col = df.columns[df.columns.str.startswith('GPS.Longitude')]
+            # Find the name of the first column in df that starts with 'GPS.Latitude'
+            lat_col = df.columns[df.columns.str.startswith('GPS.Latitude')][0] if any(
+                df.columns.str.startswith('GPS.Latitude')) else None
+            lon_col = df.columns[df.columns.str.startswith('GPS.Longitude')][0] if any(
+                df.columns.str.startswith('GPS.Longitude')) else None
 
             if lon_col is not None and lat_col is not None:
-                # Convert to float in case they are strings
-                df['GPS.LongitudeFloat'] = df[lon_col].astype(float)
-                df['GPS.LatitudeFloat'] = df[lat_col].astype(float)
-                lon0 = df['GPS.LongitudeFloat'].mean()
-                lat0 = df['GPS.LatitudeFloat'].mean()
-                # Use pyproj for accurate projection (WGS84)
-                proj = Proj(proj='aeqd', lat_0=lat0, lon_0=lon0, datum='WGS84')
-                x, y = proj(df['GPS.LongitudeFloat'].values,
-                            df['GPS.LatitudeFloat'].values)
+                x, y = self._compute_xy_excursions(df, lat_col, lon_col)
                 df['GPS.X (m)'] = x
                 df['GPS.Y (m)'] = y
-                df = df.drop(
-                    columns=['GPS.LatitudeFloat', 'GPS.LongitudeFloat'])
-                import_status += "Contains GPS data.\n"
+
+                # Find the home position to use for distance and bearing calculations
+                home_lat, home_lon = self._find_home_position(df, lat_col, lon_col)
+                if home_lat is not None and home_lon is not None:
+                    df['CUSTOM.DistFromHome (m)'] = self._compute_distance_from_target(
+                        df, lat_col, lon_col, home_lat, home_lon)
+                    df['CUSTOM.BearingToHome (deg)'] = self._compute_bearing_to_target(
+                        df, lat_col, lon_col, home_lat, home_lon)
+
             else:
                 import_status += "No GPS data found.\n"
 
@@ -453,6 +460,7 @@ class LogProcessor:
 
         except Exception as e:
             print(f"Error parsing tlog file: {e}")
+            self.current_log.log_file_type = None
             return False
 
     def _parse_bin_file(self, file_path: Path, config: Dict[str, Any], progress_callback=None) -> bool:
@@ -594,7 +602,10 @@ class LogProcessor:
                         nonimported_message_types.append(msg.get_type())
 
             if not data:
+                self.current_log.log_file_type = None
                 return False
+
+            self.current_log.log_file_type = "bin"
 
             # Convert to DataFrame
             df = pd.DataFrame(data)
@@ -611,45 +622,31 @@ class LogProcessor:
             else:
                 df['ElapsedTime'] = None
 
-            # Find a column in df that starts with 'GPS.Lat' or 'GPS.Lon'
-            lat_col = df.columns[df.columns.str.startswith('GPS.Lat')]
-            lon_col = df.columns[df.columns.str.startswith('GPS.Lon')]
+            # Find the name of the first column in df that starts with 'GPS.Lat' or 'GPS.Lon'
+            lat_col = df.columns[df.columns.str.startswith('GPS.Lat')][0] if any(
+                df.columns.str.startswith('GPS.Lat')) else None
+            lon_col = df.columns[df.columns.str.startswith('GPS.Lon')][0] if any(
+                df.columns.str.startswith('GPS.Lon')) else None
 
             # Some longitude fields in dataflash logs start with "Lng" rather than "Lon"
-            if lon_col.empty:
-                lon_col = df.columns[df.columns.str.startswith('GPS.Lng')]
+            if lon_col is None:
+                lon_col = df.columns[df.columns.str.startswith('GPS.Lng')][0] if any(
+                    df.columns.str.startswith('GPS.Lng')) else None
 
-            if not lon_col.empty and not lat_col.empty:
-                # Compute X/Y excursions in meters from center GPS point if GPS columns exist
-                # Convert to float in case they are strings
-                df['GPS.LongitudeFloat'] = df[lon_col].astype(float)
-                df['GPS.LatitudeFloat'] = df[lat_col].astype(float)
-                lon0 = df['GPS.LongitudeFloat'].mean()
-                lat0 = df['GPS.LatitudeFloat'].mean()
-
-                # Use pyproj for accurate projection (WGS84)
-                proj = Proj(proj='aeqd', lat_0=lat0, lon_0=lon0, datum='WGS84')
-                x, y = proj(df['GPS.LongitudeFloat'].values,
-                            df['GPS.LatitudeFloat'].values)
+            if lat_col is not None and lon_col is not None:
+                import_status += "Contains GPS data.\n"
+                x, y = self._compute_xy_excursions(df, lat_col, lon_col)
                 df['GPS.X (m)'] = x
                 df['GPS.Y (m)'] = y
 
-                # "ORGN.Lat" and "ORGN.Lng" exist, use their values as home position
-                if 'ORGN.Lat (deg)' in df.columns and 'ORGN.Lng (deg)' in df.columns:
+                # Find the home position to use for distance and bearing calculations
+                home_lat, home_lon = self._find_home_position(df, lat_col, lon_col)
+                if home_lat is not None and home_lon is not None:
+                    df['CUSTOM.DistFromHome (m)'] = self._compute_distance_from_target(
+                        df, lat_col, lon_col, home_lat, home_lon)
+                    df['CUSTOM.BearingToHome (deg)'] = self._compute_bearing_to_target(
+                        df, lat_col, lon_col, home_lat, home_lon)
 
-                    # Compute distance from home in meters if GPS.Lat and GPS.Lon exist
-                    if 'GPS.LatitudeFloat' in df.columns and 'GPS.LongitudeFloat' in df.columns:
-                        home_lat = df['ORGN.Lat (deg)'].mean()
-                        home_lon = df['ORGN.Lng (deg)'].mean()
-                        proj_home = Proj(proj='aeqd', lat_0=home_lat,
-                                        lon_0=home_lon, datum='WGS84')
-                        xh, yh = proj_home(df['GPS.LongitudeFloat'].values,
-                                           df['GPS.LatitudeFloat'].values)
-                        df['CUSTOM.DistFromHome (m)'] = np.sqrt(xh**2 + yh**2)
-
-
-                df = df.drop(
-                    columns=['GPS.LatitudeFloat', 'GPS.LongitudeFloat'])
                 import_status += "Contains GPS data.\n"
             else:
                 import_status += "No GPS data found.\n"
@@ -667,7 +664,167 @@ class LogProcessor:
 
         except Exception as e:
             print(f"Error parsing bin file: {e}")
+            self.current_log.log_file_type = None
             return False
+
+    def _compute_xy_excursions(self, df: pd.DataFrame,
+                               lat_col: str, lon_col: str) -> Tuple[pd.Series, pd.Series]:
+        """
+        Compute X and Y excursions in meters from the center GPS point using pyproj.
+
+        Args:
+            df (pd.DataFrame): DataFrame containing GPS longitude and latitude columns.
+            lon_col (str): Name of the longitude column.
+            lat_col (str): Name of the latitude column.
+
+        Returns:
+            Tuple[pd.Series, pd.Series]: X and Y excursions in meters.
+        """
+        if lon_col in df.columns and lat_col in df.columns:
+            # Compute X/Y excursions in meters from center GPS point if GPS columns exist
+            # Convert to float in case they are strings
+            lon_data_float = df[lon_col].astype(float)
+            lat_data_float = df[lat_col].astype(float)
+            lon0 = lon_data_float.mean()
+            lat0 = lat_data_float.mean()
+
+            # Use pyproj for accurate projection (WGS84)
+            proj = Proj(proj='aeqd', lat_0=lat0, lon_0=lon0, datum='WGS84')
+            x, y = proj(lon_data_float.values, lat_data_float.values)
+
+            return x, y
+        else:
+            return pd.Series(dtype=float), pd.Series(dtype=float)
+
+    def _compute_distance_from_target(self, df: pd.DataFrame, lat_col: str, lon_col: str, home_lat: float, home_lon: float) -> pd.Series:
+        """
+        Compute distance from home position using the Haversine formula.
+
+        Args:
+            df (pd.DataFrame): DataFrame containing latitude and longitude columns.
+            lat_col (str): Name of the latitude data column.
+            lon_col (str): Name of the longitude data column.
+            home_lat_col (str): Name of the home latitude column.
+            home_lon_col (str): Name of the home longitude column.
+
+        Returns:
+            pd.Series: Series containing distances from home position in meters.
+        """
+        # Haversine formula implementation
+        R = 6371000  # Earth radius in meters
+        lat1 = np.radians(home_lat)
+        lon1 = np.radians(home_lon)
+        lat_data_float = np.radians(df[lat_col].astype(float))
+        lon_data_float = np.radians(df[lon_col].astype(float))
+
+        dlat = lat_data_float - lat1
+        dlon = lon_data_float - lon1
+
+        a = np.sin(dlat / 2)**2 + np.cos(lat1) * np.cos(lat_data_float) * np.sin(dlon / 2)**2
+        c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
+
+        return R * c
+
+    def _compute_bearing_to_target(self, df: pd.DataFrame, lat_col: str, lon_col: str, home_lat: float, home_lon: float) -> pd.Series:
+        """
+        Compute bearing to home position using the initial bearing formula.
+
+        Args:
+            df (pd.DataFrame): DataFrame containing latitude and longitude columns.
+            home_lat_col (str): Name of the home latitude column.
+            home_lon_col (str): Name of the home longitude column.
+
+        Returns:
+            pd.Series: Series containing bearings to home position in degrees.
+        """
+        # Initial bearing formula implementation
+        lat1 = np.radians(home_lat)
+        lon1 = np.radians(home_lon)
+        lat_data_float = np.radians(df[lat_col].astype(float))
+        lon_data_float = np.radians(df[lon_col].astype(float))
+
+        dlon = lon_data_float - lon1
+
+        x = np.sin(dlon) * np.cos(lat_data_float)
+        y = np.cos(lat1) * np.sin(lat_data_float) - np.sin(lat1) * np.cos(lat_data_float) * np.cos(dlon)
+        initial_bearing = np.arctan2(x, y)
+
+        # Convert bearing from radians to degrees
+        return np.degrees(initial_bearing)
+
+    def _compute_power(self, df: pd.DataFrame, voltage_col: str, current_col: str) -> pd.Series:
+        """
+         Compute power in watts from voltage and current columns.
+
+        Args:
+            df (pd.DataFrame): DataFrame containing voltage and current columns.
+            voltage_col (str): Name of the voltage column.
+            current_col (str): Name of the current column.
+
+        Returns:
+            pd.Series: Series containing power values in watts.
+        """
+        if voltage_col in df.columns and current_col in df.columns:
+            return df[voltage_col] * df[current_col]
+        else:
+            return pd.Series(dtype=float)
+
+    # Method to find the first valid latitude and longitude in the provided columns
+    def _find_first_valid_lat_lon(self, df: pd.DataFrame, lat_col: str, lon_col: str) -> Tuple[float, float]:
+        """
+        Find the first valid latitude and longitude in the provided columns.
+
+        Args:
+            df (pd.DataFrame): DataFrame containing latitude and longitude columns.
+            lat_col (str): Name of the latitude column.
+            lon_col (str): Name of the longitude column.
+
+        Returns:
+            Tuple[float, float]: First valid latitude and longitude values.
+        """
+        for _, row in df.iterrows():
+            lat = row[lat_col]
+            lon = row[lon_col]
+            if pd.notnull(lat) and pd.notnull(lon):
+                # Convert to float in case they are strings
+                lat_f = float(lat)
+                lon_f = float(lon)
+                return lat_f, lon_f
+        return None, None
+
+    def _find_home_position(self, df: pd.DataFrame, lat_col: str, lon_col: str) -> Tuple[float, float]:
+        """
+        Find the home position as a fucntion of the log file type.
+
+        Args:
+            df (pd.DataFrame): DataFrame containing latitude and longitude columns.
+            lat_col (str): Name of the latitude column.
+            lon_col (str): Name of the longitude column.
+
+        Returns:
+            Tuple[float, float]: Home latitude and longitude values.
+        """
+
+        home_lat = None
+        home_lon = None
+
+        if self.current_log.log_file_type == "csv":
+            home_lat, home_lon = self._find_first_valid_lat_lon(df, lat_col, lon_col)
+
+        elif self.current_log.log_file_type == "tlog":
+            home_lat, home_lon = self._find_first_valid_lat_lon(df, lat_col, lon_col)
+
+        elif self.current_log.log_file_type == "bin":
+            # For bin files, check if "ORGN.Lat (deg)" and "ORGN.Lng (deg)" exist
+            if 'ORGN.Lat (deg)' in df.columns and 'ORGN.Lng (deg)' in df.columns:
+                home_lat, home_lon = self._find_first_valid_lat_lon(df, 'ORGN.Lat (deg)', 'ORGN.Lng (deg)')
+            else:
+                home_lat, home_lon = self._find_first_valid_lat_lon(df, lat_col, lon_col)
+        else:
+            home_lat = None
+            home_lon = None
+
+        return home_lat, home_lon
 
     def _extract_metadata(self):
         """
