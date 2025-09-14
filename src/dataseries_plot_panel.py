@@ -183,15 +183,16 @@ class DataSeriesPlotPanel(QWidget):
         self._load_color_settings()
 
 
-    def set_home_position(self, lat, lng):
+    def set_home_position(self, lat, lng, alt):
         """
         Slot to receive home position updates from GPS2DMap.
         Args:
             lat (float): Latitude of new home position.
             lng (float): Longitude of new home position.
+            alt (float): Altitude of new home position.
         """
         # You can add logic here to update the plot or store the home position
-        print(f"DataSeriesPlotPanel received new home position: lat={lat}, lng={lng}")
+        print(f"DataSeriesPlotPanel received new home position: lat={lat}, lng={lng}, alt={alt}")
 
 
     def _set_plot_title(self):

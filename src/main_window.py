@@ -42,8 +42,8 @@ class MainWindow(QMainWindow):
     analysis. It coordinates file loading, data export, plotting, and GPS visualization features.
     """
 
-    # Re-broadcast home position changes (lat, lon) to interested panels
-    homePositionChanged = Signal(float, float)
+    # Re-broadcast home position changes (lat, lon, alt) to interested panels
+    homePositionChanged = Signal(float, float, float)
 
     def __init__(self):
         """
@@ -79,6 +79,10 @@ class MainWindow(QMainWindow):
             self.gps_2d_map_panel.homePositionChanged.connect(self._on_home_position_changed)
             # Forward via MainWindow signal instead of direct map->panel coupling
             self.homePositionChanged.connect(self.plot_panel.set_home_position)
+
+        #Connect the home position change to self.processor
+        if hasattr(self, 'processor') and hasattr(self.processor, 'set_home_position'):
+            self.homePositionChanged.connect(self.processor.set_home_position)
 
         # Update UI state
         self._update_ui_state()
@@ -166,16 +170,16 @@ class MainWindow(QMainWindow):
         # Set splitter proportions
         main_splitter.setSizes([350, 1050])
 
-    def _on_home_position_changed(self, lat: float, lon: float):
+    def _on_home_position_changed(self, lat: float, lon: float, alt: float) -> None:
         """Receive propagated home position updates from GPS map and store/display."""
-        self.home_position = (lat, lon)
+        self.home_position = (lat, lon, alt)
         # Re-broadcast
         try:
-            self.homePositionChanged.emit(lat, lon)
+            self.homePositionChanged.emit(lat, lon, alt)
         except Exception:
             pass
         if hasattr(self, 'status_label'):
-            self.status_label.setText(f"Home: {lat:.5f}, {lon:.5f}")
+            self.status_label.setText(f"Home: {lat:.5f}, {lon:.5f}, {alt:.1f}")
             QTimer.singleShot(4000, lambda: self.status_label.setText("Ready"))
 
     def _setup_menu(self) -> None:

@@ -65,7 +65,7 @@ class GPS2DMap(QWidget):
     """
 
     # Signal emitted when home position changes (lat, lon)
-    homePositionChanged = Signal(float, float)
+    homePositionChanged = Signal(float, float, float)
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         """
@@ -105,14 +105,14 @@ class GPS2DMap(QWidget):
 
         self.web_view.installEventFilter(self)
 
-    def set_home_position(self, lat, lng):
+    def set_home_position(self, lat, lng, alt):
         """
         Set the home position and update the map.
         """
-        self.home_position = [lat, lng]
+        self.home_position = [lat, lng, alt]
         self._set_home_mode = False
         try:
-            self.homePositionChanged.emit(float(lat), float(lng))
+            self.homePositionChanged.emit(float(lat), float(lng), float(alt))
         except Exception:
             pass
         self._update_display()
@@ -212,8 +212,11 @@ class GPS2DMap(QWidget):
                 coords = title.split(":")[1]
                 lat, lng = map(float, coords.split(","))
 
-                self.set_home_position(lat, lng)
-                self.home_position = (lat, lng)
+                alt = 0.0  # Default altitude for home position
+                # TODO: Find a better way to integrate with altitude data if available
+
+                self.set_home_position(lat, lng, alt)
+                self.home_position = (lat, lng, alt)
                 print(f"Home position set to: {self.home_position}")
 
     def _get_trajectory_color(self, color_name: str) -> str:
@@ -438,7 +441,8 @@ class GPS2DMap(QWidget):
 
         if self.home_position is not None:
             try:
-                folium.Marker(location=self.home_position, tooltip="Home Position",
+                folium.Marker(location=[self.home_position[0], self.home_position[1]],
+                              tooltip="Home Position",
                                     icon=folium.Icon(color="blue", icon="home", prefix="fa"))\
                         .add_to(self.m)
             except Exception:

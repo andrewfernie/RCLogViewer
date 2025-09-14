@@ -33,6 +33,7 @@ class LogData:
         self.metadata: Dict[str, Any] = {}
         self.file_path: Optional[Path] = None
         self.log_file_type: Optional[str] = None
+        self.user_home_position: Optional[Tuple[float, float, float]] = None
 
 
 class LogProcessor:
@@ -101,6 +102,22 @@ class LogProcessor:
             print(f"Error loading file: {e}")
             return False
 
+    def set_home_position(self, lat, lng, alt):
+        """
+        Slot to receive home position updates from MainWindow.
+        Args:
+            lat (float): Latitude of new home position.
+            lng (float): Longitude of new home position.
+            alt (float): Altitude of new home position.
+        """
+        # Save the new home position.
+        self.current_log.user_home_position = (lat, lng, alt)
+
+        # Recompute GPS derived data if we have GPS data
+        df = self.generate_gps_derived_data(self.current_log.processed_data)
+        self.current_log.processed_data = df
+        self.current_log.channels = list(df.columns)
+
     def _parse_csv_file(self, file_path: Path, config: Dict[str, Any], progress_callback=None) -> bool:
         """
         Parse a CSV log file and process its contents. This supports both FrSky Ethos
@@ -145,6 +162,7 @@ class LogProcessor:
 
             # Split GPS column if present
             if 'GPS' in df.columns:
+                import_status += "Contains GPS data.\n"
                 gps_split = df['GPS'].str.split(' ', expand=True)
 
                 # For each row in gps_split, if either gps_split[0] or gps_split[1] is equal to '0.000000',
@@ -160,20 +178,6 @@ class LogProcessor:
                 df[lat_col] = gps_split[0]
                 df[lon_col] = gps_split[1]
                 df = df.drop(columns=['GPS'])
-
-            if lon_col is not None and lat_col is not None:
-                import_status += "Contains GPS data.\n"
-                x, y = self._compute_xy_excursions(df, lat_col, lon_col)
-                df['GPS.X (m)'] = x
-                df['GPS.Y (m)'] = y
-
-                # Use _find_first_valid_lat_lon to find the first valid GPS coordinates and save them as home position
-                home_lat, home_lon = self._find_home_position(df, lat_col, lon_col)
-                if home_lat is not None and home_lon is not None:
-                    df['CUSTOM.DistFromHome (m)'] = self._compute_distance_from_target(
-                        df, lat_col, lon_col, home_lat, home_lon)
-                    df['CUSTOM.BearingToHome (deg)'] = self._compute_bearing_to_target(
-                        df, lat_col, lon_col, home_lat, home_lon)
 
             else:
                 import_status += "No GPS data found.\n"
@@ -232,6 +236,9 @@ class LogProcessor:
             # Map the DataFrame columns to their respective channels using the config
             # df = df.rename(columns=self.config.get("csv_file", {}).get("channel_mapping", {}))
             df = df.rename(columns=config.get("channel_mapping", {}))
+
+            # Compute the custom data series if GPS data is present
+            df = self.generate_gps_derived_data(df)
 
             # Compute LiPo Total (V) if any "LiPo<N> (V)"" columns exist
             lipo_cols = [col for col in df.columns if re.match(
@@ -417,27 +424,18 @@ class LogProcessor:
             else:
                 df['ElapsedTime'] = None
 
-            # Compute X/Y excursions in meters from center GPS point if GPS columns exist\
-            # If there is a column in df that starts with 'GPS.Longitude'
 
-            # Find the name of the first column in df that starts with 'GPS.Latitude'
+            # Find the name of the first columns in df that starts with 'GPS.Latitude'
+            # or 'GPS.Longitude'
             lat_col = df.columns[df.columns.str.startswith('GPS.Latitude')][0] if any(
                 df.columns.str.startswith('GPS.Latitude')) else None
             lon_col = df.columns[df.columns.str.startswith('GPS.Longitude')][0] if any(
                 df.columns.str.startswith('GPS.Longitude')) else None
 
             if lon_col is not None and lat_col is not None:
-                x, y = self._compute_xy_excursions(df, lat_col, lon_col)
-                df['GPS.X (m)'] = x
-                df['GPS.Y (m)'] = y
-
-                # Find the home position to use for distance and bearing calculations
-                home_lat, home_lon = self._find_home_position(df, lat_col, lon_col)
-                if home_lat is not None and home_lon is not None:
-                    df['CUSTOM.DistFromHome (m)'] = self._compute_distance_from_target(
-                        df, lat_col, lon_col, home_lat, home_lon)
-                    df['CUSTOM.BearingToHome (deg)'] = self._compute_bearing_to_target(
-                        df, lat_col, lon_col, home_lat, home_lon)
+                import_status += "Contains GPS data.\n"
+                # Compute the custom data series if GPS data is present
+                df = self.generate_gps_derived_data(df)
 
             else:
                 import_status += "No GPS data found.\n"
@@ -635,19 +633,9 @@ class LogProcessor:
 
             if lat_col is not None and lon_col is not None:
                 import_status += "Contains GPS data.\n"
-                x, y = self._compute_xy_excursions(df, lat_col, lon_col)
-                df['GPS.X (m)'] = x
-                df['GPS.Y (m)'] = y
+                # Compute the custom data series if GPS data is present
+                df = self.generate_gps_derived_data(df)
 
-                # Find the home position to use for distance and bearing calculations
-                home_lat, home_lon = self._find_home_position(df, lat_col, lon_col)
-                if home_lat is not None and home_lon is not None:
-                    df['CUSTOM.DistFromHome (m)'] = self._compute_distance_from_target(
-                        df, lat_col, lon_col, home_lat, home_lon)
-                    df['CUSTOM.BearingToHome (deg)'] = self._compute_bearing_to_target(
-                        df, lat_col, lon_col, home_lat, home_lon)
-
-                import_status += "Contains GPS data.\n"
             else:
                 import_status += "No GPS data found.\n"
 
@@ -752,6 +740,51 @@ class LogProcessor:
         # Convert bearing from radians to degrees
         return np.degrees(initial_bearing)
 
+    def _compute_elevation_to_target(self, df: pd.DataFrame, lat_col: str, lon_col: str, alt_col: str,
+                                     home_lat: float, home_lon: float, home_alt: float) -> pd.Series:
+        """
+        Compute distance from home position using the Haversine formula.
+
+        Args:
+            df (pd.DataFrame): DataFrame containing latitude and longitude columns.
+            lat_col (str): Name of the latitude data column.
+            lon_col (str): Name of the longitude data column.
+            alt_col (str): Name of the altitude data column.
+            home_lat (float): Home latitude.
+            home_lon (float): Home longitude.
+            home_alt (float): Home altitude.
+
+        Returns:
+            pd.Series: Series containing elevation angles to home position in degrees.
+        """
+        # Haversine formula implementation
+        R = 6371000  # Earth radius in meters
+        lat1 = np.radians(home_lat)
+        lon1 = np.radians(home_lon)
+        if home_alt is None:
+            alt1 = 0.0
+        else:
+            alt1 = home_alt
+
+        lat_data_float = np.radians(df[lat_col].astype(float))
+        lon_data_float = np.radians(df[lon_col].astype(float))
+        alt_data_float = df[alt_col].astype(float)
+
+        dlat = lat_data_float - lat1
+        dlon = lon_data_float - lon1
+        dalt = alt_data_float - alt1
+
+        a = np.sin(dlat / 2)**2 + np.cos(lat1) * np.cos(lat_data_float) * np.sin(dlon / 2)**2
+        c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
+
+        distance = R * c
+
+        # Compute elevation angle
+        elevation_angle = np.arctan2(dalt, distance)
+
+        # Convert elevation angle from radians to degrees
+        return np.degrees(elevation_angle)
+
     def _compute_power(self, df: pd.DataFrame, voltage_col: str, current_col: str) -> pd.Series:
         """
          Compute power in watts from voltage and current columns.
@@ -770,61 +803,95 @@ class LogProcessor:
             return pd.Series(dtype=float)
 
     # Method to find the first valid latitude and longitude in the provided columns
-    def _find_first_valid_lat_lon(self, df: pd.DataFrame, lat_col: str, lon_col: str) -> Tuple[float, float]:
+    def _find_initial_valid_gps_data(self, df: pd.DataFrame, lat_col: str, lon_col: str,
+                                   alt_col: str) -> Tuple[float, float, float]:
         """
-        Find the first valid latitude and longitude in the provided columns.
+        Find the initial valid latitude and longitude in the provided columns.
 
         Args:
             df (pd.DataFrame): DataFrame containing latitude and longitude columns.
             lat_col (str): Name of the latitude column.
             lon_col (str): Name of the longitude column.
+            alt_col (str): Name of the altitude column.
 
         Returns:
-            Tuple[float, float]: First valid latitude and longitude values.
+            Tuple[float, float, float]: First valid latitude, longitude, and altitude values.
         """
-        for _, row in df.iterrows():
-            lat = row[lat_col]
-            lon = row[lon_col]
-            if pd.notnull(lat) and pd.notnull(lon):
-                # Convert to float in case they are strings
-                lat_f = float(lat)
-                lon_f = float(lon)
-                return lat_f, lon_f
-        return None, None
 
-    def _find_home_position(self, df: pd.DataFrame, lat_col: str, lon_col: str) -> Tuple[float, float]:
+        # Find the 10th not null valid latitude and longitude in the provided columns. We use the
+        # 10th valid value to avoid any initial bad data that might be present.
+        valid_lat = df[lat_col].notnull()
+        valid_lon = df[lon_col].notnull()
+        valid_alt = df[alt_col].notnull()
+        valid_indices = df[valid_lat & valid_lon & valid_alt].index
+
+        if len(valid_indices) >= 10:
+            # Get the 10th valid index
+            tenth_valid_index = valid_indices[9]
+            lat_f = float(df.at[tenth_valid_index, lat_col])
+            lon_f = float(df.at[tenth_valid_index, lon_col])
+            alt_f = float(df.at[tenth_valid_index, alt_col])
+
+        else:
+            # Not enough valid data
+            lat_f = None
+            lon_f = None
+            alt_f = None
+
+        return lat_f, lon_f, alt_f
+
+        # for _, row in df.iterrows():
+        #     lat = row[lat_col]
+        #     lon = row[lon_col]
+        #     alt = row[alt_col]
+        #     if pd.notnull(lat) and pd.notnull(lon) and pd.notnull(alt):
+        #         # Convert to float in case they are strings
+        #         lat_f = float(lat)
+        #         lon_f = float(lon)
+        #         alt_f = float(alt)
+        #         return lat_f, lon_f, alt_f
+        # return None, None, None
+
+    def _find_home_position(self, df: pd.DataFrame, lat_col: str, lon_col: str, alt_col: str) -> Tuple[float, float, float]:
         """
-        Find the home position as a fucntion of the log file type.
+        Find the home position as a function of the log file type.
 
         Args:
             df (pd.DataFrame): DataFrame containing latitude and longitude columns.
             lat_col (str): Name of the latitude column.
             lon_col (str): Name of the longitude column.
+            alt_col (str): Name of the altitude column.
 
         Returns:
-            Tuple[float, float]: Home latitude and longitude values.
+            Tuple[float, float, float]: Home latitude, longitude, and altitude values.
         """
 
         home_lat = None
         home_lon = None
+        home_alt = None
 
-        if self.current_log.log_file_type == "csv":
-            home_lat, home_lon = self._find_first_valid_lat_lon(df, lat_col, lon_col)
+        if self.current_log.user_home_position is not None:
+            home_lat, home_lon, home_alt = self.current_log.user_home_position
 
-        elif self.current_log.log_file_type == "tlog":
-            home_lat, home_lon = self._find_first_valid_lat_lon(df, lat_col, lon_col)
-
-        elif self.current_log.log_file_type == "bin":
-            # For bin files, check if "ORGN.Lat (deg)" and "ORGN.Lng (deg)" exist
-            if 'ORGN.Lat (deg)' in df.columns and 'ORGN.Lng (deg)' in df.columns:
-                home_lat, home_lon = self._find_first_valid_lat_lon(df, 'ORGN.Lat (deg)', 'ORGN.Lng (deg)')
-            else:
-                home_lat, home_lon = self._find_first_valid_lat_lon(df, lat_col, lon_col)
         else:
-            home_lat = None
-            home_lon = None
+            if self.current_log.log_file_type == "csv":
+                home_lat, home_lon, home_alt = self._find_initial_valid_gps_data(df, lat_col, lon_col, alt_col)
 
-        return home_lat, home_lon
+            elif self.current_log.log_file_type == "tlog":
+                home_lat, home_lon, home_alt = self._find_initial_valid_gps_data(df, lat_col, lon_col, alt_col)
+
+            elif self.current_log.log_file_type == "bin":
+                # For bin files, check if "ORGN.Lat (deg)" and "ORGN.Lng (deg)" exist
+                if 'ORGN.Lat (deg)' in df.columns and 'ORGN.Lng (deg)' in df.columns:
+                    home_lat, home_lon, home_alt = self._find_initial_valid_gps_data(df, 'ORGN.Lat (deg)', 'ORGN.Lng (deg)', 'ORGN.Alt (m)')
+                else:
+                    home_lat, home_lon, home_alt = self._find_initial_valid_gps_data(df, lat_col, lon_col, alt_col)
+            else:
+                home_lat = None
+                home_lon = None
+                home_alt = None
+
+        return home_lat, home_lon, home_alt
 
     def _extract_metadata(self):
         """
@@ -935,6 +1002,95 @@ class LogProcessor:
             'median': float(numeric_data.median()),
             'count': len(numeric_data)
         }
+
+    def generate_gps_derived_data(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Generate custom data channels based on existing data.
+        1. GPS.X (m) and GPS.Y (m): X and Y excursions in meters from the center GPS point.
+        2. CUSTOM.DistFromHome (m): Distance from home position in meters.
+        3. CUSTOM.BearingToHome (deg): Bearing to home position in degrees.
+        4. CUSTOM.ElevationToHome (deg): Elevation angle to home position in degrees.
+
+        Args:
+            df (pd.DataFrame): DataFrame containing the processed log data.
+
+        Returns:
+            pd.DataFrame: DataFrame with additional custom data channels.
+        """
+        if df is None or df.empty:
+            return df
+
+        lat_col = None
+        lon_col = None
+
+        lat_col = df.columns[df.columns.str.startswith('GPS.Lat')][0] if any(
+            df.columns.str.startswith('GPS.Lat')) else None
+        lon_col = df.columns[df.columns.str.startswith('GPS.Lon')][0] if any(
+            df.columns.str.startswith('GPS.Lon')) else None
+
+        # Some longitude fields in dataflash logs start with "Lng" rather than "Lon"
+        if lon_col is None:
+            lon_col = df.columns[df.columns.str.startswith('GPS.Lng')][0] if any(
+                df.columns.str.startswith('GPS.Lng')) else None
+
+        # Make this case insensitive
+        alt_col = df.columns[df.columns.str.lower().str.startswith('gps.alt')][0] if any(
+            df.columns.str.lower().str.startswith('gps.alt')) else None
+
+        # Allow for different log file types
+        if self.current_log.log_file_type == "csv":
+            # Generate a CUSTOM.GPSValid column if the lon_col and lat_col exist and are numeric
+            if lat_col is not None and lon_col is not None and 'GPS.Clock' in df.columns:
+                # fix_valid is True if GPS.Clock is not an empty string or NaN
+                fix_valid = df['GPS.Clock'].str.strip().ne('') & df['GPS.Clock'].notna()
+                df['CUSTOM.GPSValid'] = df[lat_col].notna() & df[lon_col].notna() & fix_valid
+            elif lat_col is not None and lon_col is not None:
+                df['CUSTOM.GPSValid'] = df[lat_col].notna() & df[lon_col].notna()
+            else:
+                df['CUSTOM.GPSValid'] = False
+
+        elif self.current_log.log_file_type == "tlog":
+            # Generate a CUSTOM.GPSValid column if the lon_col and lat_col exist and are numeric, and
+            # the GPS.FixType column exists and is >=3
+            if lat_col is not None and lon_col is not None and 'GPS.FixType' in df.columns:
+                fix_valid = pd.to_numeric(df['GPS.FixType'], errors='coerce').fillna(0) >= 3.0
+                df['CUSTOM.GPSValid'] = (df[lat_col].notna() & df[lon_col].notna() & fix_valid)
+            elif lat_col is not None and lon_col is not None:
+                df['CUSTOM.GPSValid'] = (df[lat_col].notna() & df[lon_col].notna())
+            else:
+                df['CUSTOM.GPSValid'] = False
+
+        elif self.current_log.log_file_type == "bin":
+            if lat_col is not None and lon_col is not None and 'GPS.Status' in df.columns:
+                fix_valid = pd.to_numeric(df['GPS.Status'], errors='coerce').fillna(0) >= 3
+                df['CUSTOM.GPSValid'] = (df[lat_col].notna() & df[lon_col].notna() & fix_valid)
+            elif lat_col is not None and lon_col is not None:
+                df['CUSTOM.GPSValid'] = df[lat_col].notna() & df[lon_col].notna()
+            else:
+                df['CUSTOM.GPSValid'] = False
+
+        if lat_col is not None and lon_col is not None:
+            x, y = self._compute_xy_excursions(df, lat_col, lon_col)
+            df['GPS.X (m)'] = x
+            df['GPS.Y (m)'] = y
+
+            # Use _find_first_valid_lat_lon to find the first valid GPS coordinates and save
+            # them as home position
+            home_lat, home_lon, home_alt = self._find_home_position(df, lat_col, lon_col, alt_col)
+            if home_lat is not None and home_lon is not None:
+                df['CUSTOM.DistFromHome (m)'] = self._compute_distance_from_target(
+                    df, lat_col, lon_col, home_lat, home_lon)
+                df['CUSTOM.BearingToHome (deg)'] = self._compute_bearing_to_target(
+                    df, lat_col, lon_col, home_lat, home_lon)
+
+                if alt_col is not None:
+                    # If altitude column exists, compute elevation angle to home. Assume
+                    # home altitude is 0.0 m until some better approach is found.
+                    df['CUSTOM.ElevationToHome (deg)'] = self._compute_elevation_to_target(
+                        df, lat_col, lon_col, alt_col, home_lat, home_lon, home_alt)
+
+        return df
+
 
     def export_filtered_data(self, output_path: str, channels: Optional[List[str]] = None,
                              start_time: Optional[float] = None,
