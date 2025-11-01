@@ -75,7 +75,8 @@ class MainWindow(QMainWindow):
         self._connect_signals()
 
         # Connect home position distribution after UI is built
-        if hasattr(self, 'gps_2d_map_panel') and hasattr(self.gps_2d_map_panel, 'homePositionChanged'):
+        if hasattr(self, 'gps_2d_map_panel') and hasattr(
+            self.gps_2d_map_panel, 'homePositionChanged'):
             self.gps_2d_map_panel.homePositionChanged.connect(self._on_home_position_changed)
             # Forward via MainWindow signal instead of direct map->panel coupling
             self.homePositionChanged.connect(self.plot_panel.set_home_position)
@@ -301,7 +302,8 @@ class MainWindow(QMainWindow):
 
         # List log files in the folder
         log_files = [f for f in os.listdir(folder_path)
-                    if os.path.isfile(os.path.join(folder_path, f)) and f.lower().endswith(('.csv', '.tlog', '.bin'))]
+                    if os.path.isfile(os.path.join(folder_path, f)) and f.lower().endswith(
+                        ('.csv', '.tlog', '.bin'))]
         if not log_files:
             QMessageBox.information(self, "No Log Files", "No log files found in this folder.")
             return
@@ -365,7 +367,8 @@ class MainWindow(QMainWindow):
                 cl = ch.lower()
                 if lat_col is None and ("latitude" in cl or cl.endswith("lat") or ".lat" in cl):
                     lat_col = ch
-                if lon_col is None and ("longitude" in cl or cl.endswith("lon") or ".lon" in cl or ".lng" in cl):
+                if lon_col is None and ("longitude" in cl or cl.endswith("lon") or ".lon" in cl
+                                        or ".lng" in cl):
                     lon_col = ch
 
             has_gps_latlon_data = lat_col is not None and lon_col is not None
@@ -817,11 +820,12 @@ class MainWindow(QMainWindow):
         if altitudes is not None:
             data_length = min(data_length, len(altitudes))
 
-        # Because each line (or message) in the input log file creates its own line in the dataframe, and
-        # each line in the dataframe contains all channels, we can end up with many duplicate points.
-        # While there doesn't seem to be a defined limit to the number of points in a kml file, eventually
-        # the programs that render the kml (e.g. Google Earth) will refuse to display it.  So, we only keep
-        # the last unique point for each (lat, lon, alt) combination.
+        # Because each line (or message) in the input log file creates its own line in the
+        # dataframe, and each line in the dataframe contains all channels, we can end up with
+        # many duplicate points. While there doesn't seem to be a defined limit to the number
+        # of points in a kml file, eventually the programs that render the kml (e.g. Google
+        # Earth) will refuse to display it.  So, we only keep the last unique point for each
+        # (lat, lon, alt) combination.
         last_lat = None
         last_lon = None
         last_alt = None

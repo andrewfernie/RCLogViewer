@@ -118,7 +118,38 @@ class LogProcessor:
         self.current_log.processed_data = df
         self.current_log.channels = list(df.columns)
 
-    def _parse_csv_file(self, file_path: Path, config: Dict[str, Any], progress_callback=None) -> bool:
+    def validate_elapsedtime_series(self, elapsed_time_series: pd.Series
+                                    ) -> Tuple[pd.Series, pd.Series]:
+        """
+        Validate the ElapsedTime series to ensure it is non-decreasing.
+        Args:
+            elapsed_time_series (pd.Series): Series containing ElapsedTime data.
+        """
+       # Make a copy to avoid SettingWithCopyWarning
+        elapsed_time_series = elapsed_time_series.copy()
+
+        # Iterate through each row of 'ElapsedTime' and if the value is negative, set
+        # it to the last valid value. This should never really happen, but I have
+        # seen a file where the radio time data suddenly steps to a new date/time,
+        # then later jumps back to the appropriate time. This simple check covers the
+        # case seen, but wouldn't catch, e.g., a case where the time suddenly jumped
+        # forward rather than back.
+
+        elapsed_time_series_valid = pd.Series(
+            np.ones(len(elapsed_time_series)), index=elapsed_time_series.index)
+
+        last_valid_time = elapsed_time_series_valid.iloc[0]
+        for i in range(len(elapsed_time_series)):
+            if elapsed_time_series[i] < 0:
+                elapsed_time_series.iloc[i] = last_valid_time
+                elapsed_time_series_valid.iloc[i] = 0
+            else:
+                last_valid_time = elapsed_time_series.iloc[i]
+
+        return elapsed_time_series, elapsed_time_series_valid
+
+    def _parse_csv_file(self, file_path: Path, config: Dict[str, Any],
+                        progress_callback=None) -> bool:
         """
         Parse a CSV log file and process its contents. This supports both FrSky Ethos
         and OpenTX log files, along with limited support for generic CSV files.
@@ -162,21 +193,24 @@ class LogProcessor:
 
             # Split GPS column if present
             if 'GPS' in df.columns:
-                import_status += "Contains GPS data.\n"
+                import_status += "Contains GPS lat/lon data.\n"
                 gps_split = df['GPS'].str.split(' ', expand=True)
 
-                # For each row in gps_split, if either gps_split[0] or gps_split[1] is equal to '0.000000',
-                # set both to NaN. This catches some cases of bad data, and it is unlikely that the
-                # GPS receiver would report a valid latitude or longitude with a value of exactly '0.000000'
+                # For each row in gps_split, if either gps_split[0] or gps_split[1] is equal to
+                # '0.000000', set both to NaN. This catches some cases of bad data, and it is
+                # unlikely that the GPS receiver would report a valid latitude or longitude with
+                # a value of exactly '0.000000'
 
-                gps_valid = ~((gps_split[0] == '0.000000') | (gps_split[1] == '0.000000'))
+                gps_valid = ~((gps_split[0] == '0.000000') | (
+                    gps_split[1] == '0.000000'))
                 gps_split = gps_split.where(gps_valid, np.nan)
-                            # Find a column in df that starts with 'GPS.Latitude'
+                # Find a column in df that starts with 'GPS.Latitude'
                 lat_col = 'GPS.Latitude'
                 lon_col = 'GPS.Longitude'
 
-                df[lat_col] = gps_split[0]
-                df[lon_col] = gps_split[1]
+                df.loc[:, lat_col] = gps_split[0]
+                df.loc[:, lon_col] = gps_split[1]
+
                 df = df.drop(columns=['GPS'])
 
             else:
@@ -230,6 +264,12 @@ class LogProcessor:
                     first_time = df['DateTime'].iloc[0]
                     df['ElapsedTime'] = (
                         df['DateTime'] - first_time).dt.total_seconds()
+
+                    # Validate the elapsed time series and track any problematic times
+                    # in a new column 'ElapsedTValid'.
+                    df['ElapsedTime'], df['CUSTOM.ElapsedTValid'] = self.validate_elapsedtime_series(
+                        df['ElapsedTime'])
+
                 else:
                     df['ElapsedTime'] = None
 
@@ -250,7 +290,8 @@ class LogProcessor:
 
             # Compute Power(W) if VFAS(V) and Current(A) are present
             if 'POWER.VFAS (V)' in df.columns and 'POWER.Current (A)' in df.columns:
-                df['POWER.Power (W)'] = self._compute_power(df, 'POWER.VFAS (V)', 'POWER.Current (A)')
+                df['POWER.Power (W)'] = self._compute_power(df, 'POWER.VFAS (V)',
+                                                            'POWER.Current (A)')
                 import_status += "Generated 'Power (W)' data.\n"
 
             # Sort columns alphabetically
@@ -271,7 +312,8 @@ class LogProcessor:
             self.current_log.log_file_type = None
             return False
 
-    def _parse_tlog_file(self, file_path: Path, config: Dict[str, Any], progress_callback=None) -> bool:
+    def _parse_tlog_file(self, file_path: Path, config: Dict[str, Any],
+                         progress_callback=None) -> bool:
         """
         Parse a MAVLink .tlog file and process its contents into a pandas DataFrame.
 
@@ -294,15 +336,16 @@ class LogProcessor:
             # TLOG files are essentially records of MAVLINK messages.
             # See https://mavlink.io/en/messages/common.html for message definitions.
             #
-            # They can include time series data as well as one-time parameters, file transfers, etc.
-            # We are concerned primarily with time series data, and even for time series data, the
-            # content of the TLOG file will depend on the specific MAVLink messages being sent and
-            # received. So, we need to define the message types we are interested in, and this is
-            # done in the config file through an object "selected_messages".
-            desired_msg_types = list(config.get("selected_messages", {}).keys())
+            # They can include time series data as well as one-time parameters, file transfers,
+            # etc. We are concerned primarily with time series data, and even for time series
+            # data, the content of the TLOG file will depend on the specific MAVLink messages
+            # being sent and received. So, we need to define the message types we are interested
+            # in, and this is done in the config file through an object "selected_messages".
+            desired_msg_types = list(config.get(
+                "selected_messages", {}).keys())
 
-            # Retrieve the scaling dictionary for unit conversions from the config file. The names
-            # are those found in the pymavlink message fieldunits_by_name attribute.
+            # Retrieve the scaling dictionary for unit conversions from the config file. The
+            # names are those found in the pymavlink message fieldunits_by_name attribute.
             scaling_dict = config.get("scaling", {})
 
             # Iterate through all messages in the log file
@@ -324,20 +367,22 @@ class LogProcessor:
                     if progress_callback:
                         progress_callback(percent_complete)
 
-                    msg_datetime = pd.to_datetime(datetime.fromtimestamp(msg._timestamp
-                                                                        ).strftime('%Y-%m-%d %H:%M:%S.%f'))
+                    msg_datetime = pd.to_datetime(
+                        datetime.fromtimestamp(msg._timestamp).strftime('%Y-%m-%d %H:%M:%S.%f'))
 
                     msg_dict = msg.to_dict()
 
-                    # Get the "group" to which each parameter is assigned, and to be used as the prefix to the DataFrame column.
+                    # Get the "group" to which each parameter is assigned, and to be used as
+                    # the prefix to the DataFrame column.
                     msg_group = config.get("selected_messages", {}).get(
                         msg.get_type(), {}).get("group", "UNKNOWN")
 
-                    # Get the timestamp for this message and make it the first entry in the data_list
+                    # Get the timestamp for this message and make it the first entry in the
+                    # data_list.
                     data_list = {'DateTime': msg_datetime}
 
-                    # Check the field "all_channels", which indicates that all channels found in the message
-                    # should be imported.
+                    # Check the field "all_channels", which indicates that all channels found in
+                    # the message should be imported.
                     all_channels = config.get("selected_messages", {}).get(
                         msg.get_type(), {}).get("all_channels", 0)
 
@@ -354,26 +399,30 @@ class LogProcessor:
                     for i in range(num_fields):
                         field_name = fieldnames[i]
 
-                        # Don't bother with any field name starting with "time_" - we already have the message
-                        # timestamp.
+                        # Don't bother with any field name starting with "time_" - we already
+                        # have the message timestamp.
                         if (not field_name.startswith("time_") and
-                            (all_channels > 0 or field_name in config_msg_fields)):
+                                (all_channels > 0 or field_name in config_msg_fields)):
                             field_info = msg_dict.get(field_name, {})
                             field_units = msg_units.get(field_name, None)
-                            this_config_msg_field = config_msg_fields.get(field_name, {})
+                            this_config_msg_field = config_msg_fields.get(
+                                field_name, {})
 
                             if this_config_msg_field is not None:
-                                base_name = this_config_msg_field.get("base_name", field_name)
+                                base_name = this_config_msg_field.get(
+                                    "base_name", field_name)
                             else:
                                 base_name = field_name
 
                             if field_units is not None:
-                                scaling_info = scaling_dict.get(field_units, None)
+                                scaling_info = scaling_dict.get(
+                                    field_units, None)
                             else:
                                 scaling_info = None
 
                             if scaling_info is not None:
-                                field_units_suffix = scaling_info.get("units_suffix", "")
+                                field_units_suffix = scaling_info.get(
+                                    "units_suffix", "")
                             else:
                                 field_units_suffix = ""
 
@@ -402,7 +451,6 @@ class LogProcessor:
                     if msg.get_type() not in nonimported_message_types:
                         nonimported_message_types.append(msg.get_type())
 
-
             if not data:
                 self.current_log.log_file_type = None
                 return False
@@ -423,7 +471,6 @@ class LogProcessor:
                     df['DateTime'] - first_time).dt.total_seconds()
             else:
                 df['ElapsedTime'] = None
-
 
             # Find the name of the first columns in df that starts with 'GPS.Latitude'
             # or 'GPS.Longitude'
@@ -461,13 +508,16 @@ class LogProcessor:
             self.current_log.log_file_type = None
             return False
 
-    def _parse_bin_file(self, file_path: Path, config: Dict[str, Any], progress_callback=None) -> bool:
+    def _parse_bin_file(self, file_path: Path, config: Dict[str, Any],
+                        progress_callback=None) -> bool:
         """
-        Parse an Ardupilot dataflash log (.bin) file and process its contents into a pandas DataFrame.
+        Parse an Ardupilot dataflash log (.bin) file and process its contents into a
+        pandas DataFrame.
 
         Args:
             file_path (Path): Path to the .bin file.
-            progress_callback (callable, optional): Function to call with percent_complete (0-100).
+            progress_callback (callable, optional): Function to call with
+            percent_complete (0-100).
 
         Returns:
             bool: True if parsing was successful, False otherwise.
@@ -497,8 +547,8 @@ class LogProcessor:
             desired_msg_types = list(config.get(
                 "selected_messages", {}).keys())
 
-            # Retrieve the scaling dictionary for unit conversions from the config file. The names
-            # are those found in the pymavlink message fieldunits_by_name attribute.
+            # Retrieve the scaling dictionary for unit conversions from the config file.
+            # The names are those found in the pymavlink message fieldunits_by_name attribute.
             scaling_dict = config.get("scaling", {})
 
             # Iterate through all messages in the log file
@@ -520,20 +570,22 @@ class LogProcessor:
                         progress_callback(percent_complete)
 
                     # Get the timestamp for this message
-                    msg_datetime = pd.to_datetime(datetime.fromtimestamp(msg._timestamp
-                                                                        ).strftime('%Y-%m-%d %H:%M:%S.%f'))
+                    msg_datetime = pd.to_datetime(
+                        datetime.fromtimestamp(msg._timestamp).strftime('%Y-%m-%d %H:%M:%S.%f'))
 
                     msg_dict = msg.to_dict()
 
-                    # Get the "group" to which each parameter is assigned, and to be used as the prefix to the DataFrame column.
+                    # Get the "group" to which each parameter is assigned, and to be used as the
+                    # prefix to the DataFrame column.
                     msg_group = config.get("selected_messages", {}).get(
                         msg.get_type(), {}).get("group", "UNKNOWN")
 
-                    # Get the timestamp for this message and make it the first entry in the data_list
+                    # Get the timestamp for this message and make it the first entry in the
+                    # data_list.
                     data_list = {'DateTime': msg_datetime}
 
-                    # Check the field "all_channels", which indicates that all channels found in the message
-                    # should be imported.
+                    # Check the field "all_channels", which indicates that all channels found
+                    # in the message should be imported.
                     all_channels = config.get("selected_messages", {}).get(
                         msg.get_type(), {}).get("all_channels", 0)
 
@@ -550,26 +602,30 @@ class LogProcessor:
                     for i in range(num_fields):
                         field_name = fieldnames[i]
 
-                        # Don't bother with any field name starting with "TimeUS" - we already have the message
-                        # timestamp.
+                        # Don't bother with any field name starting with "TimeUS" -
+                        # we already have the message timestamp.
                         if (not field_name.startswith("TimeUS") and
-                            (all_channels > 0 or field_name in config_msg_fields)):
+                                (all_channels > 0 or field_name in config_msg_fields)):
                             field_info = msg_dict.get(field_name, {})
                             field_units = msg_units[i]
-                            this_config_msg_field = config_msg_fields.get(field_name, {})
+                            this_config_msg_field = config_msg_fields.get(
+                                field_name, {})
 
                             if this_config_msg_field is not None:
-                                base_name = this_config_msg_field.get("base_name", field_name)
+                                base_name = this_config_msg_field.get(
+                                    "base_name", field_name)
                             else:
                                 base_name = field_name
 
                             if field_units is not None:
-                                scaling_info = scaling_dict.get(field_units, None)
+                                scaling_info = scaling_dict.get(
+                                    field_units, None)
                             else:
                                 scaling_info = None
 
                             if scaling_info is not None:
-                                field_units_suffix = scaling_info.get("units_suffix", "")
+                                field_units_suffix = scaling_info.get(
+                                    "units_suffix", "")
                             else:
                                 field_units_suffix = ""
 
@@ -589,7 +645,6 @@ class LogProcessor:
                                 df_col_value = field_info
 
                             data_list.update({df_col_name: df_col_value})
-
 
                     if len(data_list) > 1:
                         data.append(data_list)
@@ -684,7 +739,8 @@ class LogProcessor:
         else:
             return pd.Series(dtype=float), pd.Series(dtype=float)
 
-    def _compute_distance_from_target(self, df: pd.DataFrame, lat_col: str, lon_col: str, home_lat: float, home_lon: float) -> pd.Series:
+    def _compute_distance_from_target(self, df: pd.DataFrame, lat_col: str, lon_col: str,
+                                      home_lat: float, home_lon: float) -> pd.Series:
         """
         Compute distance from home position using the Haversine formula.
 
@@ -699,7 +755,7 @@ class LogProcessor:
             pd.Series: Series containing distances from home position in meters.
         """
         # Haversine formula implementation
-        R = 6371000  # Earth radius in meters
+        earth_radius = 6371000  # Earth radius in meters
         lat1 = np.radians(home_lat)
         lon1 = np.radians(home_lon)
         lat_data_float = np.radians(df[lat_col].astype(float))
@@ -708,12 +764,14 @@ class LogProcessor:
         dlat = lat_data_float - lat1
         dlon = lon_data_float - lon1
 
-        a = np.sin(dlat / 2)**2 + np.cos(lat1) * np.cos(lat_data_float) * np.sin(dlon / 2)**2
+        a = np.sin(dlat / 2)**2 + np.cos(lat1) * \
+            np.cos(lat_data_float) * np.sin(dlon / 2)**2
         c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
 
-        return R * c
+        return earth_radius * c
 
-    def _compute_bearing_to_target(self, df: pd.DataFrame, lat_col: str, lon_col: str, home_lat: float, home_lon: float) -> pd.Series:
+    def _compute_bearing_to_target(self, df: pd.DataFrame, lat_col: str, lon_col: str,
+                                   home_lat: float, home_lon: float) -> pd.Series:
         """
         Compute bearing to home position using the initial bearing formula.
 
@@ -734,7 +792,8 @@ class LogProcessor:
         dlon = lon_data_float - lon1
 
         x = np.sin(dlon) * np.cos(lat_data_float)
-        y = np.cos(lat1) * np.sin(lat_data_float) - np.sin(lat1) * np.cos(lat_data_float) * np.cos(dlon)
+        y = np.cos(lat1) * np.sin(lat_data_float) - np.sin(lat1) * \
+            np.cos(lat_data_float) * np.cos(dlon)
         initial_bearing = np.arctan2(x, y)
 
         # Convert bearing from radians to degrees
@@ -774,7 +833,8 @@ class LogProcessor:
         dlon = lon_data_float - lon1
         dalt = alt_data_float - alt1
 
-        a = np.sin(dlat / 2)**2 + np.cos(lat1) * np.cos(lat_data_float) * np.sin(dlon / 2)**2
+        a = np.sin(dlat / 2)**2 + np.cos(lat1) * \
+            np.cos(lat_data_float) * np.sin(dlon / 2)**2
         c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
 
         distance = R * c
@@ -804,7 +864,7 @@ class LogProcessor:
 
     # Method to find the first valid latitude and longitude in the provided columns
     def _find_initial_valid_gps_data(self, df: pd.DataFrame, lat_col: str, lon_col: str,
-                                   alt_col: str) -> Tuple[float, float, float]:
+                                     alt_col: str) -> Tuple[float, float, float]:
         """
         Find the initial valid latitude and longitude in the provided columns.
 
@@ -820,17 +880,25 @@ class LogProcessor:
 
         # Find the 10th not null valid latitude and longitude in the provided columns. We use the
         # 10th valid value to avoid any initial bad data that might be present.
+
         valid_lat = df[lat_col].notnull()
         valid_lon = df[lon_col].notnull()
-        valid_alt = df[alt_col].notnull()
-        valid_indices = df[valid_lat & valid_lon & valid_alt].index
+
+        if (alt_col is not None):
+            valid_alt = df[alt_col].notnull()
+            valid_indices = df[valid_lat & valid_lon & valid_alt].index
+        else:
+            valid_indices = df[valid_lat & valid_lon].index
 
         if len(valid_indices) >= 10:
             # Get the 10th valid index
             tenth_valid_index = valid_indices[9]
             lat_f = float(df.at[tenth_valid_index, lat_col])
             lon_f = float(df.at[tenth_valid_index, lon_col])
-            alt_f = float(df.at[tenth_valid_index, alt_col])
+            if (alt_col is not None):
+                alt_f = float(df.at[tenth_valid_index, alt_col])
+            else:
+                alt_f = None
 
         else:
             # Not enough valid data
@@ -840,19 +908,8 @@ class LogProcessor:
 
         return lat_f, lon_f, alt_f
 
-        # for _, row in df.iterrows():
-        #     lat = row[lat_col]
-        #     lon = row[lon_col]
-        #     alt = row[alt_col]
-        #     if pd.notnull(lat) and pd.notnull(lon) and pd.notnull(alt):
-        #         # Convert to float in case they are strings
-        #         lat_f = float(lat)
-        #         lon_f = float(lon)
-        #         alt_f = float(alt)
-        #         return lat_f, lon_f, alt_f
-        # return None, None, None
-
-    def _find_home_position(self, df: pd.DataFrame, lat_col: str, lon_col: str, alt_col: str) -> Tuple[float, float, float]:
+    def _find_home_position(self, df: pd.DataFrame, lat_col: str, lon_col: str,
+                            alt_col: str) -> Tuple[float, float, float]:
         """
         Find the home position as a function of the log file type.
 
@@ -875,17 +932,21 @@ class LogProcessor:
 
         else:
             if self.current_log.log_file_type == "csv":
-                home_lat, home_lon, home_alt = self._find_initial_valid_gps_data(df, lat_col, lon_col, alt_col)
+                home_lat, home_lon, home_alt = self._find_initial_valid_gps_data(
+                    df, lat_col, lon_col, alt_col)
 
             elif self.current_log.log_file_type == "tlog":
-                home_lat, home_lon, home_alt = self._find_initial_valid_gps_data(df, lat_col, lon_col, alt_col)
+                home_lat, home_lon, home_alt = self._find_initial_valid_gps_data(
+                    df, lat_col, lon_col, alt_col)
 
             elif self.current_log.log_file_type == "bin":
                 # For bin files, check if "ORGN.Lat (deg)" and "ORGN.Lng (deg)" exist
                 if 'ORGN.Lat (deg)' in df.columns and 'ORGN.Lng (deg)' in df.columns:
-                    home_lat, home_lon, home_alt = self._find_initial_valid_gps_data(df, 'ORGN.Lat (deg)', 'ORGN.Lng (deg)', 'ORGN.Alt (m)')
+                    home_lat, home_lon, home_alt = self._find_initial_valid_gps_data(
+                        df, 'ORGN.Lat (deg)', 'ORGN.Lng (deg)', 'ORGN.Alt (m)')
                 else:
-                    home_lat, home_lon, home_alt = self._find_initial_valid_gps_data(df, lat_col, lon_col, alt_col)
+                    home_lat, home_lon, home_alt = self._find_initial_valid_gps_data(
+                        df, lat_col, lon_col, alt_col)
             else:
                 home_lat = None
                 home_lon = None
@@ -956,7 +1017,8 @@ class LogProcessor:
 
     def get_time_data(self) -> Optional[pd.Series]:
         """
-        Get time data for the current log, either from a time column or generated from sample rate.
+        Get time data for the current log, either from a time column or generated
+        from sample rate.
 
         Returns:
             Optional[pd.Series]: Time data, or None if unavailable.
@@ -983,7 +1045,8 @@ class LogProcessor:
             channel_name (str): Name of the channel.
 
         Returns:
-            Optional[Dict[str, float]]: Dictionary of summary statistics, or None if unavailable.
+            Optional[Dict[str, float]]: Dictionary of summary statistics, or None
+            if unavailable.
         """
 
         data = self.get_channel_data(channel_name)
@@ -1042,28 +1105,35 @@ class LogProcessor:
             # Generate a CUSTOM.GPSValid column if the lon_col and lat_col exist and are numeric
             if lat_col is not None and lon_col is not None and 'GPS.Clock' in df.columns:
                 # fix_valid is True if GPS.Clock is not an empty string or NaN
-                fix_valid = df['GPS.Clock'].str.strip().ne('') & df['GPS.Clock'].notna()
-                df['CUSTOM.GPSValid'] = df[lat_col].notna() & df[lon_col].notna() & fix_valid
+                fix_valid = df['GPS.Clock'].str.strip().ne(
+                    '') & df['GPS.Clock'].notna()
+                df['CUSTOM.GPSValid'] = df[lat_col].notna(
+                ) & df[lon_col].notna() & fix_valid
             elif lat_col is not None and lon_col is not None:
                 df['CUSTOM.GPSValid'] = df[lat_col].notna() & df[lon_col].notna()
             else:
                 df['CUSTOM.GPSValid'] = False
 
         elif self.current_log.log_file_type == "tlog":
-            # Generate a CUSTOM.GPSValid column if the lon_col and lat_col exist and are numeric, and
-            # the GPS.FixType column exists and is >=3
+            # Generate a CUSTOM.GPSValid column if the lon_col and lat_col exist and are numeric,
+            # and the GPS.FixType column exists and is >=3
             if lat_col is not None and lon_col is not None and 'GPS.FixType' in df.columns:
-                fix_valid = pd.to_numeric(df['GPS.FixType'], errors='coerce').fillna(0) >= 3.0
-                df['CUSTOM.GPSValid'] = (df[lat_col].notna() & df[lon_col].notna() & fix_valid)
+                fix_valid = pd.to_numeric(
+                    df['GPS.FixType'], errors='coerce').fillna(0) >= 3.0
+                df['CUSTOM.GPSValid'] = (
+                    df[lat_col].notna() & df[lon_col].notna() & fix_valid)
             elif lat_col is not None and lon_col is not None:
-                df['CUSTOM.GPSValid'] = (df[lat_col].notna() & df[lon_col].notna())
+                df['CUSTOM.GPSValid'] = (
+                    df[lat_col].notna() & df[lon_col].notna())
             else:
                 df['CUSTOM.GPSValid'] = False
 
         elif self.current_log.log_file_type == "bin":
             if lat_col is not None and lon_col is not None and 'GPS.Status' in df.columns:
-                fix_valid = pd.to_numeric(df['GPS.Status'], errors='coerce').fillna(0) >= 3
-                df['CUSTOM.GPSValid'] = (df[lat_col].notna() & df[lon_col].notna() & fix_valid)
+                fix_valid = pd.to_numeric(
+                    df['GPS.Status'], errors='coerce').fillna(0) >= 3
+                df['CUSTOM.GPSValid'] = (
+                    df[lat_col].notna() & df[lon_col].notna() & fix_valid)
             elif lat_col is not None and lon_col is not None:
                 df['CUSTOM.GPSValid'] = df[lat_col].notna() & df[lon_col].notna()
             else:
@@ -1076,7 +1146,8 @@ class LogProcessor:
 
             # Use _find_first_valid_lat_lon to find the first valid GPS coordinates and save
             # them as home position
-            home_lat, home_lon, home_alt = self._find_home_position(df, lat_col, lon_col, alt_col)
+            home_lat, home_lon, home_alt = self._find_home_position(
+                df, lat_col, lon_col, alt_col)
             if home_lat is not None and home_lon is not None:
                 df['CUSTOM.DistFromHome (m)'] = self._compute_distance_from_target(
                     df, lat_col, lon_col, home_lat, home_lon)
@@ -1090,7 +1161,6 @@ class LogProcessor:
                         df, lat_col, lon_col, alt_col, home_lat, home_lon, home_alt)
 
         return df
-
 
     def export_filtered_data(self, output_path: str, channels: Optional[List[str]] = None,
                              start_time: Optional[float] = None,
